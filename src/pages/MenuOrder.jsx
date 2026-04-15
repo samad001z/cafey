@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Camera, QrCode, ScanLine, Search, Star, Store, X } from 'lucide-react'
+import { Camera, QrCode, ScanLine, Search, ShoppingBag, Star, Store, X } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
@@ -529,6 +529,11 @@ export default function MenuOrder() {
       })
       .filter(Boolean)
   }, [cart, menuItems])
+
+  const cartItemCount = useMemo(
+    () => cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+    [cartItems],
+  )
 
   const subtotal = useMemo(
     () => cartItems.reduce((sum, item) => sum + Number(item.price || 0) * item.quantity, 0),
@@ -1450,6 +1455,21 @@ export default function MenuOrder() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {cartItems.length ? (
+        <button
+          type="button"
+          className="mo-mobile-cartbar"
+          onClick={openCheckout}
+          aria-label="Open checkout"
+        >
+          <span>
+            <ShoppingBag size={16} /> {cartItemCount} items
+          </span>
+          <strong>₹{grandTotal.toFixed(2)}</strong>
+          <em>Checkout</em>
+        </button>
+      ) : null}
     </div>
   )
 }

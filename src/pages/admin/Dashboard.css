@@ -1,0 +1,710 @@
+.admin-dashboard-page {
+  min-height: 100vh;
+  background: radial-gradient(circle at 15% 10%, rgba(200, 133, 58, 0.14), transparent 32%), #0f0a06;
+  color: #f5edd6;
+  font-family: 'DM Sans', sans-serif;
+  padding: 1rem;
+}
+
+.admin-topbar {
+  width: min(1400px, 96vw);
+  margin: 0 auto;
+  border: 1px solid rgba(200, 133, 58, 0.25);
+  border-radius: 14px;
+  background: #1c1108;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.9rem;
+  gap: 0.7rem;
+}
+
+.admin-topbar h1 {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.topbar-actions select,
+.topbar-actions .logout,
+.topbar-actions .icon-btn {
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 133, 58, 0.3);
+  background: transparent;
+  color: #f5edd6;
+  padding: 0 0.75rem;
+  cursor: pointer;
+}
+
+.topbar-actions .logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-layout {
+  width: min(1400px, 96vw);
+  margin: 0.85rem auto 0;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0.8rem;
+}
+
+.admin-sidebar,
+.admin-content {
+  border: 1px solid rgba(200, 133, 58, 0.25);
+  border-radius: 14px;
+  background: #1c1108;
+}
+
+.admin-sidebar {
+  padding: 0.8rem;
+  align-self: start;
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-sidebar button {
+  min-height: 40px;
+  border: 1px solid rgba(200, 133, 58, 0.25);
+  background: transparent;
+  color: #f5edd6;
+  border-radius: 10px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.65rem;
+  cursor: pointer;
+}
+
+.admin-sidebar button.active {
+  border-color: #c8853a;
+  color: #c8853a;
+  background: rgba(200, 133, 58, 0.12);
+}
+
+.admin-content {
+  padding: 0.9rem;
+}
+
+.admin-page {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.panel {
+  border: 1px solid rgba(200, 133, 58, 0.22);
+  border-radius: 12px;
+  background: #130c07;
+  padding: 0.85rem;
+}
+
+.panel h2,
+.panel h3 {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.panel-head.multi {
+  flex-wrap: wrap;
+}
+
+.panel select,
+.panel input,
+.panel textarea,
+.panel button {
+  border: 1px solid rgba(200, 133, 58, 0.28);
+  border-radius: 10px;
+  background: #1c1108;
+  color: #f5edd6;
+  min-height: 36px;
+  padding: 0 0.6rem;
+  font-family: inherit;
+}
+
+.panel textarea {
+  min-height: 90px;
+  padding-top: 0.5rem;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.metric-grid article {
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+
+.metric-grid h3,
+.metric-grid p {
+  margin: 0;
+}
+
+.metric-grid h3 {
+  font-size: 0.92rem;
+  color: #8a7560;
+}
+
+.metric-grid p {
+  margin-top: 0.55rem;
+  color: #c8853a;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.pill-row {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.pill-row button {
+  min-height: 34px;
+  border-radius: 999px;
+  background: transparent;
+  color: #f5edd6;
+}
+
+.pill-row button.active {
+  border-color: #c8853a;
+  color: #c8853a;
+  background: rgba(200, 133, 58, 0.12);
+}
+
+.staff-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.staff-card {
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 12px;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.staff-card .avatar-sm,
+.avatar-mini {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid #c8853a;
+  color: #c8853a;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  margin: 0 auto 0.45rem;
+}
+
+.avatar-mini {
+  margin: 0;
+  width: 34px;
+  height: 34px;
+}
+
+.staff-card h3,
+.staff-card p,
+.staff-card small {
+  margin: 0;
+}
+
+.staff-card p,
+.staff-card small {
+  color: #8a7560;
+}
+
+.status {
+  margin-top: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 133, 58, 0.28);
+  text-transform: capitalize;
+  padding: 0 0.65rem;
+}
+
+.status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status.present { color: #68c677; }
+.status.present i { background: #68c677; animation: pulse-dot 1.4s infinite; }
+.status.late { color: #e3c270; }
+.status.late i { background: #e3c270; }
+.status.absent { color: #da6262; }
+.status.absent i { background: #da6262; }
+.status.placed { color: #c8853a; }
+.status.preparing { color: #e3c270; }
+.status.ready { color: #62b5e5; }
+.status.completed { color: #72c77b; }
+.status.confirmed { color: #68c677; }
+
+.branch-overview-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.branch-overview-grid article {
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.branch-overview-grid h3,
+.branch-overview-grid p {
+  margin: 0;
+}
+
+.branch-overview-grid p {
+  color: #8a7560;
+  margin-top: 0.35rem;
+}
+
+.branch-overview-grid button {
+  margin-top: 0.6rem;
+  min-height: 34px;
+  border-radius: 999px;
+}
+
+.kanban-grid {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.kanban-col {
+  border: 1px solid rgba(200, 133, 58, 0.18);
+  border-radius: 12px;
+  padding: 0.55rem;
+  min-height: 300px;
+}
+
+.kanban-col h3 {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.kanban-card {
+  margin-top: 0.5rem;
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 10px;
+  padding: 0.55rem;
+  cursor: pointer;
+}
+
+.kanban-card h4,
+.kanban-card p,
+.kanban-card ul,
+.kanban-card small {
+  margin: 0;
+}
+
+.kanban-card p,
+.kanban-card small {
+  color: #8a7560;
+}
+
+.kanban-card ul {
+  margin-top: 0.35rem;
+  padding-left: 1rem;
+}
+
+.side-panel {
+  border: 1px solid rgba(200, 133, 58, 0.22);
+  border-radius: 12px;
+  background: #130c07;
+  padding: 0.8rem;
+}
+
+.side-panel .close {
+  float: right;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 8px;
+}
+
+.side-panel h3,
+.side-panel p,
+.side-panel ul {
+  margin: 0;
+}
+
+.side-panel p,
+.side-panel ul {
+  color: #8a7560;
+  margin-top: 0.4rem;
+}
+
+.side-panel ul {
+  padding-left: 1rem;
+}
+
+.side-panel label {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.side-panel > button {
+  margin-top: 0.6rem;
+}
+
+.table-wrap {
+  margin-top: 0.7rem;
+  overflow: auto;
+}
+
+.table-wrap table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  border-bottom: 1px solid rgba(200, 133, 58, 0.15);
+  text-align: left;
+  padding: 0.52rem 0.45rem;
+}
+
+.table-wrap th {
+  color: #c8853a;
+}
+
+.table-wrap td button {
+  margin-right: 0.35rem;
+  min-height: 30px;
+}
+
+.credential-card {
+  margin-top: 0.8rem;
+  border: 1px dashed rgba(200, 133, 58, 0.32);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.credential-card h3,
+.credential-card p {
+  margin: 0;
+}
+
+.credential-card p {
+  margin-top: 0.35rem;
+  color: #8a7560;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.68);
+  display: grid;
+  place-items: center;
+  z-index: 120;
+  padding: 1rem;
+}
+
+.modal-card {
+  width: min(520px, 96vw);
+  border: 1px solid rgba(200, 133, 58, 0.3);
+  border-radius: 14px;
+  background: #1c1108;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.modal-card h3 {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+}
+
+.modal-card label {
+  display: grid;
+  gap: 0.3rem;
+  color: #8a7560;
+}
+
+.modal-card .checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.modal-card .checkbox input {
+  min-height: auto;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
+}
+
+.filters-row {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #8a7560;
+  min-height: 36px;
+  padding: 0 0.2rem;
+}
+
+.checkbox-inline input {
+  min-height: auto;
+}
+
+.review-customer-cell {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.review-customer-cell strong,
+.review-customer-cell small {
+  margin: 0;
+}
+
+.review-customer-cell small {
+  color: #8a7560;
+}
+
+.review-text-cell {
+  max-width: 340px;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.ai-insights-panel > .panel-head span {
+  color: #8a7560;
+}
+
+.insights-metric-grid {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.insights-metric-grid article {
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 10px;
+  padding: 0.65rem;
+}
+
+.insights-metric-grid h3,
+.insights-metric-grid strong {
+  margin: 0;
+}
+
+.insights-metric-grid h3 {
+  font-size: 0.9rem;
+  color: #8a7560;
+}
+
+.insights-metric-grid strong {
+  margin-top: 0.4rem;
+  display: block;
+  color: #c8853a;
+  font-size: 1.1rem;
+}
+
+.insights-suggestion-grid {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.insights-suggestion-grid article {
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: #120b07;
+}
+
+.insights-suggestion-grid article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.insights-suggestion-grid h3,
+.insights-suggestion-grid p {
+  margin: 0;
+}
+
+.insights-suggestion-grid p {
+  margin-top: 0.42rem;
+  color: #8a7560;
+  line-height: 1.45;
+}
+
+.cms-editor-label {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.35rem;
+  color: #8a7560;
+}
+
+.cms-editor {
+  width: 100%;
+  min-height: 330px;
+  border: 1px solid rgba(200, 133, 58, 0.28);
+  border-radius: 12px;
+  background: #120b07;
+  color: #f5edd6;
+  font-family: 'DM Mono', 'Consolas', monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  padding: 0.65rem;
+  resize: vertical;
+}
+
+.muted {
+  margin: 0.45rem 0 0;
+  color: #8a7560;
+}
+
+.charts-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.charts-grid article {
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 10px;
+  padding: 0.5rem;
+}
+
+.charts-grid h3 {
+  margin: 0 0 0.35rem;
+}
+
+.menu-photo {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+}
+
+.switch input {
+  display: none;
+}
+
+.switch span {
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: #67472b;
+  position: relative;
+  display: inline-block;
+}
+
+.switch span::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+
+.switch input:checked + span {
+  background: #5ab970;
+}
+
+.switch input:checked + span::after {
+  transform: translateX(18px);
+}
+
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(104, 198, 119, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(104, 198, 119, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(104, 198, 119, 0); }
+}
+
+@media (max-width: 1180px) {
+  .metric-grid,
+  .staff-grid,
+  .branch-overview-grid,
+  .charts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .insights-metric-grid,
+  .insights-suggestion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kanban-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+  }
+
+  .metric-grid,
+  .staff-grid,
+  .branch-overview-grid,
+  .charts-grid,
+  .kanban-grid {
+    grid-template-columns: 1fr;
+  }
+}

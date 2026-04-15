@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext'
 import './MenuOrder.css'
 
 const LAST_RECEIPT_KEY = 'qaffeine_last_receipt'
+const PENDING_PAYMENT_KEY = 'qaffeine_pending_payment_receipt'
+const PENDING_PAYMENT_MAX_AGE_MS = 30 * 60 * 1000
 const checkoutSteps = ['Type & Table', 'Review', 'Payment']
 
 const imageMenuCatalog = [
@@ -573,6 +575,7 @@ export default function MenuOrder() {
     setCreatedOrderId('')
     setReceipt(null)
     sessionStorage.removeItem(LAST_RECEIPT_KEY)
+    sessionStorage.removeItem(PENDING_PAYMENT_KEY)
     setIsCheckoutOpen(true)
   }
 
@@ -693,6 +696,100 @@ export default function MenuOrder() {
     return orderId
   }
 
+  const buildBaseReceiptPayload = () => ({
+    customerName,
+    outletName: branchNameMap.get(checkoutOutlet) || 'Qaffeine Outlet',
+    orderType,
+    tableNumber: orderType === 'takeaway' ? null : tableNumber.trim() || null,
+    items: cartItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: Number(item.price || 0),
+    })),
+    subtotal,
+    gstAmount,
+    packaging,
+    total: grandTotal,
+    paidAt: new Date().toISOString(),
+  })
+
+  const readPendingPaymentReceipt = () => {
+    try {
+      const raw = sessionStorage.getItem(PENDING_PAYMENT_KEY)
+      if (!raw) return null
+
+      const parsed = JSON.parse(raw)
+      if (!parsed?.initiatedAt || !Array.isArray(parsed?.items)) return null
+
+      const ageMs = Date.now() - new Date(parsed.initiatedAt).getTime()
+      if (Number.isNaN(ageMs) || ageMs < 0 || ageMs > PENDING_PAYMENT_MAX_AGE_MS) {
+        sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+        return null
+      }
+
+      return parsed
+    } catch {
+      sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+      return null
+    }
+  }
+
+  const recoverReceiptAfterPayment = async () => {
+    const pending = readPendingPaymentReceipt()
+    if (!pending) {
+      toast.error('Payment session expired. Please place a fresh order if amount was not debited.')
+      return
+    }
+
+    setPaying(true)
+
+    const baseReceiptPayload = {
+      ...pending,
+      paidAt: new Date().toISOString(),
+    }
+    delete baseReceiptPayload.initiatedAt
+
+    try {
+      const recoveredOrderId = await persistOrder(null)
+      const recoveredReceipt = {
+        ...baseReceiptPayload,
+        orderId: recoveredOrderId,
+        syncStatus: 'pending_verification',
+      }
+
+      setReceipt(recoveredReceipt)
+      setCreatedOrderId(recoveredOrderId)
+      setPaymentSuccess(true)
+      setCheckoutStep(3)
+      sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(recoveredReceipt))
+      sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+      setCart({})
+
+      toast.success('Receipt restored. Staff may verify payment at counter if needed.')
+    } catch (error) {
+      console.error('Receipt recovery failed:', error)
+      const fallbackOrderId = `PAY-${Date.now().toString().slice(-8)}`
+      const fallbackReceipt = {
+        ...baseReceiptPayload,
+        orderId: fallbackOrderId,
+        syncStatus: 'pending',
+      }
+
+      setReceipt(fallbackReceipt)
+      setCreatedOrderId(fallbackOrderId)
+      setPaymentSuccess(true)
+      setCheckoutStep(3)
+      sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(fallbackReceipt))
+      sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+      setCart({})
+
+      toast.error('Receipt restored, but automatic order sync failed. Please show this receipt ID to staff.')
+    } finally {
+      setPaying(false)
+    }
+  }
+
   const handlePayment = async () => {
     setPaying(true)
 
@@ -710,6 +807,12 @@ export default function MenuOrder() {
       return
     }
 
+    const pendingSnapshot = {
+      ...buildBaseReceiptPayload(),
+      initiatedAt: new Date().toISOString(),
+    }
+    sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pendingSnapshot))
+
     const options = {
       key,
       amount: Math.round(grandTotal * 100),
@@ -725,23 +828,7 @@ export default function MenuOrder() {
         color: '#C8853A',
       },
       handler: async (response) => {
-        const baseReceiptPayload = {
-          customerName,
-          outletName: branchNameMap.get(checkoutOutlet) || 'Qaffeine Outlet',
-          orderType,
-          tableNumber: orderType === 'takeaway' ? null : tableNumber.trim() || null,
-          items: cartItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            unitPrice: Number(item.price || 0),
-          })),
-          subtotal,
-          gstAmount,
-          packaging,
-          total: grandTotal,
-          paidAt: new Date().toISOString(),
-        }
+        const baseReceiptPayload = buildBaseReceiptPayload()
 
         try {
           const orderId = await persistOrder(response?.razorpay_order_id || null)
@@ -752,6 +839,7 @@ export default function MenuOrder() {
           setPaymentSuccess(true)
           setCheckoutStep(3)
           sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receiptPayload))
+          sessionStorage.removeItem(PENDING_PAYMENT_KEY)
           setCart({})
           setRecentOrders((prev) => [
             {
@@ -774,6 +862,7 @@ export default function MenuOrder() {
           setPaymentSuccess(true)
           setCheckoutStep(3)
           sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(fallbackReceipt))
+          sessionStorage.removeItem(PENDING_PAYMENT_KEY)
           setCart({})
 
           toast.error('Payment captured. Receipt generated, but order sync is pending. Please contact support with this receipt ID.')
@@ -784,6 +873,9 @@ export default function MenuOrder() {
       modal: {
         ondismiss: () => {
           setPaying(false)
+          if (!paymentSuccess && readPendingPaymentReceipt()) {
+            toast('If payment was already completed in UPI app, tap "I already paid" to restore receipt.')
+          }
         },
       },
     }
@@ -1334,6 +1426,9 @@ export default function MenuOrder() {
                         </button>
                         <button type="button" className="next" onClick={handlePayment} disabled={paying}>
                           {paying ? 'Opening Razorpay...' : 'Pay Now'}
+                        </button>
+                        <button type="button" onClick={recoverReceiptAfterPayment} disabled={paying}>
+                          I already paid
                         </button>
                       </div>
                     </>

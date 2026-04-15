@@ -381,6 +381,26 @@ h1 {
   font-size: 0.8rem;
 }
 
+.auth-otp-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auth-resend-link {
+  border: 0;
+  background: transparent;
+  color: #c8853a;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0;
+}
+
+.auth-resend-link:disabled {
+  color: rgba(245, 237, 214, 0.46);
+  cursor: not-allowed;
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }

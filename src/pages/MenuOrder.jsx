@@ -315,7 +315,8 @@ export default function MenuOrder() {
   const videoRef = useRef(null)
   const scannerStreamRef = useRef(null)
   const scannerRafRef = useRef(null)
-  const pendingRecoveryPromptedRef = useRef(false)
+  const pendingRecoveryHandledRef = useRef('')
+  const paymentHandledRef = useRef(false)
 
   const hasReceipt = Boolean(receipt?.orderId && receipt?.paidAt)
 
@@ -777,10 +778,12 @@ export default function MenuOrder() {
     }
   }
 
-  const recoverReceiptAfterPayment = async () => {
+  const recoverReceiptAfterPayment = async ({ silent = false } = {}) => {
     const pending = readPendingPaymentReceipt()
     if (!pending) {
-      toast.error('Payment session expired. Please place a fresh order if amount was not debited.')
+      if (!silent) {
+        toast.error('Payment session expired. Please place a fresh order if amount was not debited.')
+      }
       return
     }
 
@@ -804,6 +807,7 @@ export default function MenuOrder() {
       setCreatedOrderId(recoveredOrderId)
       setPaymentSuccess(true)
       setCheckoutStep(3)
+      paymentHandledRef.current = true
       sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(recoveredReceipt))
       sessionStorage.removeItem(PENDING_PAYMENT_KEY)
       setCart({})
@@ -818,7 +822,7 @@ export default function MenuOrder() {
         ...prev,
       ].slice(0, 6))
 
-      toast.success('Receipt restored. Staff may verify payment at counter if needed.')
+      toast.success('Payment confirmed. Receipt generated.')
     } catch (error) {
       console.error('Receipt recovery failed:', error)
       const fallbackOrderId = `PAY-${Date.now().toString().slice(-8)}`
@@ -832,6 +836,7 @@ export default function MenuOrder() {
       setCreatedOrderId(fallbackOrderId)
       setPaymentSuccess(true)
       setCheckoutStep(3)
+      paymentHandledRef.current = true
       sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(fallbackReceipt))
       sessionStorage.removeItem(PENDING_PAYMENT_KEY)
       setCart({})
@@ -843,11 +848,13 @@ export default function MenuOrder() {
   }
 
   useEffect(() => {
-    if (pendingRecoveryPromptedRef.current) return
     if (hasReceipt) return
 
     const pending = readPendingPaymentReceipt()
     if (!pending) return
+
+    const pendingKey = String(pending.initiatedAt || '')
+    if (pendingRecoveryHandledRef.current === pendingKey) return
 
     const defaultOutlet = selectedOutlet !== 'all' ? selectedOutlet : branches[0]?.id || ''
     const pendingOutlet = pending.branchId && branches.some((branch) => branch.id === pending.branchId)
@@ -863,12 +870,15 @@ export default function MenuOrder() {
 
     setCheckoutStep(3)
     setIsCheckoutOpen(true)
-    pendingRecoveryPromptedRef.current = true
-    toast('Payment session found. Tap "I already paid" to restore your receipt.')
+    pendingRecoveryHandledRef.current = pendingKey
+
+    // Automatically finalize receipt recovery if mobile callback was missed.
+    recoverReceiptAfterPayment({ silent: true })
   }, [branches, hasReceipt, selectedOutlet])
 
   const handlePayment = async () => {
     setPaying(true)
+    paymentHandledRef.current = false
 
     const key = import.meta.env.VITE_RAZORPAY_KEY_ID
     if (!key) {
@@ -915,6 +925,7 @@ export default function MenuOrder() {
           setCreatedOrderId(orderId)
           setPaymentSuccess(true)
           setCheckoutStep(3)
+          paymentHandledRef.current = true
           sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receiptPayload))
           sessionStorage.removeItem(PENDING_PAYMENT_KEY)
           setCart({})
@@ -938,6 +949,7 @@ export default function MenuOrder() {
           setCreatedOrderId(fallbackOrderId)
           setPaymentSuccess(true)
           setCheckoutStep(3)
+          paymentHandledRef.current = true
           sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(fallbackReceipt))
           sessionStorage.removeItem(PENDING_PAYMENT_KEY)
           setCart({})
@@ -950,8 +962,9 @@ export default function MenuOrder() {
       modal: {
         ondismiss: () => {
           setPaying(false)
-          if (!paymentSuccess && readPendingPaymentReceipt()) {
-            toast('If payment was already completed in UPI app, tap "I already paid" to restore receipt.')
+          if (!paymentHandledRef.current && readPendingPaymentReceipt()) {
+            toast('Finalizing your payment receipt...')
+            recoverReceiptAfterPayment({ silent: true })
           }
         },
       },
@@ -1503,9 +1516,6 @@ export default function MenuOrder() {
                         </button>
                         <button type="button" className="next" onClick={handlePayment} disabled={paying}>
                           {paying ? 'Opening Razorpay...' : 'Pay Now'}
-                        </button>
-                        <button type="button" onClick={recoverReceiptAfterPayment} disabled={paying}>
-                          I already paid
                         </button>
                       </div>
                     </>

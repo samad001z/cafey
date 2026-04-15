@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 
 const INTRO_FORCE_KEY = 'qaffeine_intro_force'
+const RESEND_COOLDOWN_SECONDS = 30
 const otpProvider = String(import.meta.env.VITE_OTP_PROVIDER || 'supabase').toLowerCase()
 const otpApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
 
@@ -44,6 +45,16 @@ function getOtpErrorHelp(errorMessage) {
   return null
 }
 
+function isOtpExpiredError(errorMessage) {
+  const text = String(errorMessage || '').toLowerCase()
+  return (
+    text.includes('expired') ||
+    text.includes('max check attempts reached') ||
+    text.includes('verification code has expired') ||
+    text.includes('token has expired')
+  )
+}
+
 async function upsertCustomerProfile(userId, phone) {
   if (!userId) throw new Error('Missing authenticated user id')
 
@@ -69,6 +80,17 @@ export default function CustomerLogin() {
   const [provisioningRole, setProvisioningRole] = useState(false)
   const [otpModeUsed, setOtpModeUsed] = useState(otpProvider)
   const [roleProvisionAttempted, setRoleProvisionAttempted] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined
+
+    const timerId = window.setTimeout(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1))
+    }, 1000)
+
+    return () => window.clearTimeout(timerId)
+  }, [resendCooldown])
 
   useEffect(() => {
     if (authLoading) return
@@ -181,6 +203,38 @@ export default function CustomerLogin() {
     }
   }
 
+  const requestOtp = async (cleanPhone, { resend = false } = {}) => {
+    if (otpProvider === 'twilio') {
+      await sendTwilioOtp(cleanPhone)
+      setOtpModeUsed('twilio')
+    } else {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: cleanPhone,
+        options: {
+          shouldCreateUser: true,
+        },
+      })
+
+      if (error) {
+        const text = String(error.message || '').toLowerCase()
+        if (text.includes('unsupported phone provider') || text.includes('provider is not enabled')) {
+          await sendTwilioOtp(cleanPhone)
+          setOtpModeUsed('twilio')
+          toast.success('Supabase phone OTP is disabled. Switched to Twilio OTP automatically.')
+        } else {
+          throw error
+        }
+      } else {
+        setOtpModeUsed('supabase')
+      }
+    }
+
+    setOtpSent(true)
+    setOtp('')
+    setResendCooldown(RESEND_COOLDOWN_SECONDS)
+    toast.success(resend ? 'OTP resent to your phone.' : 'OTP sent to your phone.')
+  }
+
   const handleSendOtp = async (event) => {
     event.preventDefault()
     setSubmitting(true)
@@ -188,38 +242,28 @@ export default function CustomerLogin() {
     const cleanPhone = toE164(phone)
 
     try {
-      if (otpProvider === 'twilio') {
-        await sendTwilioOtp(cleanPhone)
-        setOtpModeUsed('twilio')
-      } else {
-        const { error } = await supabase.auth.signInWithOtp({
-          phone: cleanPhone,
-          options: {
-            shouldCreateUser: true,
-          },
-        })
-
-        if (error) {
-          const text = String(error.message || '').toLowerCase()
-          if (text.includes('unsupported phone provider') || text.includes('provider is not enabled')) {
-            await sendTwilioOtp(cleanPhone)
-            setOtpModeUsed('twilio')
-            toast.success('Supabase phone OTP is disabled. Switched to Twilio OTP automatically.')
-          } else {
-            throw error
-          }
-        } else {
-          setOtpModeUsed('supabase')
-        }
-      }
-
-      setOtpSent(true)
-      setSubmitting(false)
-      toast.success('OTP sent to your phone.')
+      await requestOtp(cleanPhone)
     } catch (error) {
       toast.error(error.message)
       const help = getOtpErrorHelp(error.message)
       if (help) toast.error(help, { duration: 7000 })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (submitting || resendCooldown > 0 || !otpSent) return
+    setSubmitting(true)
+
+    const cleanPhone = toE164(phone)
+    try {
+      await requestOtp(cleanPhone, { resend: true })
+    } catch (error) {
+      toast.error(error.message || 'Unable to resend OTP')
+      const help = getOtpErrorHelp(error.message)
+      if (help) toast.error(help, { duration: 7000 })
+    } finally {
       setSubmitting(false)
     }
   }
@@ -260,6 +304,11 @@ export default function CustomerLogin() {
     } catch (error) {
       console.error('OTP verification failed:', error)
       toast.error(error.message || 'OTP verification failed')
+      if (isOtpExpiredError(error.message)) {
+        setOtp('')
+        setResendCooldown(0)
+        toast('OTP expired. Tap Resend OTP to get a new code.')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -336,6 +385,19 @@ export default function CustomerLogin() {
           <button type="submit" className="auth-btn auth-btn-primary" disabled={submitting}>
             {submitting ? 'Please wait...' : otpSent ? 'Verify OTP' : 'Send OTP'}
           </button>
+
+          {otpSent ? (
+            <div className="auth-otp-tools">
+              <button
+                type="button"
+                className="auth-resend-link"
+                onClick={handleResendOtp}
+                disabled={submitting || resendCooldown > 0}
+              >
+                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
+              </button>
+            </div>
+          ) : null}
 
           {otpModeUsed === 'twilio' ? (
             <p className="auth-mode-note">

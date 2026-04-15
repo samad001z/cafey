@@ -49,6 +49,27 @@
   gap: 0.35rem;
 }
 
+.topbar-actions .icon-btn.has-badge {
+  position: relative;
+}
+
+.topbar-actions .icon-btn .badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #da6262;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0 0.2rem;
+}
+
 .admin-layout {
   width: min(1400px, 96vw);
   margin: 0.85rem auto 0;
@@ -295,6 +316,45 @@
   margin-top: 0.6rem;
   min-height: 34px;
   border-radius: 999px;
+}
+
+.inventory-alert-list {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.inventory-alert-card {
+  border: 1px solid rgba(218, 98, 98, 0.35);
+  border-radius: 10px;
+  background: rgba(218, 98, 98, 0.08);
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.inventory-alert-card > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.inventory-alert-card h3,
+.inventory-alert-card p,
+.inventory-alert-card small,
+.inventory-alert-card strong {
+  margin: 0;
+}
+
+.inventory-alert-card small,
+.inventory-alert-card p {
+  color: #d7b5aa;
+}
+
+.inventory-alert-card strong {
+  color: #ffb99f;
+  font-size: 0.88rem;
 }
 
 .kanban-grid {

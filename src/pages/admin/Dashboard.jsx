@@ -82,6 +82,13 @@ function timeAgo(value) {
   return `${mins} min ago`
 }
 
+function initialsFromName(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return 'ST'
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return `${words[0][0]}${words[1][0]}`.toUpperCase()
+}
+
 function randomDigits(length) {
   let output = ''
   for (let i = 0; i < length; i += 1) output += Math.floor(Math.random() * 10)
@@ -223,7 +230,16 @@ export default function Dashboard() {
   const [menuCategory, setMenuCategory] = useState('All')
   const [showMenuModal, setShowMenuModal] = useState(false)
   const [editingMenuItem, setEditingMenuItem] = useState(null)
-  const [menuDraft, setMenuDraft] = useState({ name: '', description: '', price: '', category: '', is_veg: true, image_url: '', branch_id: '' })
+  const [menuDraft, setMenuDraft] = useState({
+    name: '',
+    description: '',
+    price: '',
+    category: '',
+    is_veg: true,
+    image_url: '',
+    branch_id: '',
+    modifiers: '',
+  })
 
   const [reservations, setReservations] = useState([])
   const [reservationBranch, setReservationBranch] = useState('all')
@@ -242,6 +258,7 @@ export default function Dashboard() {
   const [ordersPerBranchData, setOrdersPerBranchData] = useState([])
   const [topMenuItemsData, setTopMenuItemsData] = useState([])
   const [attendanceHeatmap, setAttendanceHeatmap] = useState([])
+  const [inventoryAlerts, setInventoryAlerts] = useState([])
 
   const branchNameById = useMemo(() => {
     const map = new Map()
@@ -514,7 +531,7 @@ export default function Dashboard() {
   const fetchMenu = async () => {
     const { data, error } = await supabase
       .from('menu_items')
-      .select('id, name, category, price, image_url, is_available, description, is_veg, branch_id')
+      .select('id, name, category, price, image_url, is_available, description, is_veg, branch_id, modifiers')
       .order('category', { ascending: true })
       .order('name', { ascending: true })
 
@@ -655,6 +672,26 @@ export default function Dashboard() {
     setAttendanceHeatmap(heatRows)
   }
 
+  const fetchInventoryAlerts = async () => {
+    let query = supabase
+      .from('inventory_alerts')
+      .select('id, branch_id, ingredient_name, current_quantity, low_stock_threshold, message, created_at, is_read')
+      .order('created_at', { ascending: false })
+      .limit(40)
+
+    if (selectedOutlet !== 'all') query = query.eq('branch_id', selectedOutlet)
+
+    const { data, error } = await query
+    if (error) {
+      if (activePage === 'monitor') {
+        toast.error(error.message || 'Failed to load inventory alerts')
+      }
+      return
+    }
+
+    setInventoryAlerts(data || [])
+  }
+
   useEffect(() => {
     fetchMetrics()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -702,6 +739,11 @@ export default function Dashboard() {
   }, [rangeStart, rangeEnd, branches.length, selectedOutlet])
 
   useEffect(() => {
+    fetchInventoryAlerts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOutlet])
+
+  useEffect(() => {
     const channel = supabase
       .channel('admin-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
@@ -730,6 +772,9 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => {
         fetchMenu()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_alerts' }, () => {
+        fetchInventoryAlerts()
+      })
       .subscribe()
 
     return () => {
@@ -750,6 +795,7 @@ export default function Dashboard() {
       if (activePage === 'reviews') fetchReviews()
       if (activePage === 'menu') fetchMenu()
       if (activePage === 'analytics') fetchAnalytics()
+      if (activePage === 'monitor') fetchInventoryAlerts()
     }, 20000)
 
     return () => clearInterval(interval)
@@ -881,7 +927,16 @@ export default function Dashboard() {
 
   const openAddMenuItem = () => {
     setEditingMenuItem(null)
-    setMenuDraft({ name: '', description: '', price: '', category: '', is_veg: true, image_url: '', branch_id: '' })
+    setMenuDraft({
+      name: '',
+      description: '',
+      price: '',
+      category: '',
+      is_veg: true,
+      image_url: '',
+      branch_id: '',
+      modifiers: '',
+    })
     setShowMenuModal(true)
   }
 
@@ -895,11 +950,27 @@ export default function Dashboard() {
       is_veg: item.is_veg ?? true,
       image_url: item.image_url || '',
       branch_id: item.branch_id || '',
+      modifiers: item.modifiers ? JSON.stringify(item.modifiers, null, 2) : '',
     })
     setShowMenuModal(true)
   }
 
   const saveMenuItem = async () => {
+    let parsedModifiers = {}
+    if (menuDraft.modifiers && String(menuDraft.modifiers).trim()) {
+      try {
+        parsedModifiers = JSON.parse(String(menuDraft.modifiers))
+      } catch {
+        toast.error('Modifiers must be valid JSON object')
+        return
+      }
+
+      if (!parsedModifiers || typeof parsedModifiers !== 'object' || Array.isArray(parsedModifiers)) {
+        toast.error('Modifiers JSON must be an object like {"Milk": ["Whole", "Oat (+20)"]}')
+        return
+      }
+    }
+
     const payload = {
       name: menuDraft.name,
       description: menuDraft.description || null,
@@ -908,6 +979,7 @@ export default function Dashboard() {
       is_veg: !!menuDraft.is_veg,
       image_url: menuDraft.image_url || null,
       branch_id: menuDraft.branch_id || null,
+      modifiers: parsedModifiers,
     }
 
     if (!payload.name) {
@@ -1015,6 +1087,33 @@ export default function Dashboard() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Low-Stock Alerts</h2>
+            <span className="muted">{inventoryAlerts.length} recent</span>
+          </div>
+
+          {inventoryAlerts.length ? (
+            <div className="inventory-alert-list">
+              {inventoryAlerts.map((alert) => (
+                <article key={alert.id} className="inventory-alert-card">
+                  <div>
+                    <h3>{alert.ingredient_name}</h3>
+                    <small>{branchNameById.get(alert.branch_id) || 'Branch'} · {timeAgo(alert.created_at)}</small>
+                  </div>
+                  <p>{alert.message}</p>
+                  <strong>
+                    Current: {Number(alert.current_quantity || 0).toFixed(2)}
+                    {' '}| Threshold: {Number(alert.low_stock_threshold || 0).toFixed(2)}
+                  </strong>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No low-stock alerts right now.</p>
+          )}
         </section>
       </div>
     )
@@ -1229,6 +1328,15 @@ export default function Dashboard() {
               <label>Branch<select value={menuDraft.branch_id} onChange={(e) => setMenuDraft({ ...menuDraft, branch_id: e.target.value })}><option value="">All branches</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
               <label>Image URL<input value={menuDraft.image_url} onChange={(e) => setMenuDraft({ ...menuDraft, image_url: e.target.value })} /></label>
               <label className="checkbox"><input type="checkbox" checked={menuDraft.is_veg} onChange={(e) => setMenuDraft({ ...menuDraft, is_veg: e.target.checked })} /> Vegetarian</label>
+              <label>
+                Modifiers JSON
+                <textarea
+                  value={menuDraft.modifiers}
+                  onChange={(e) => setMenuDraft({ ...menuDraft, modifiers: e.target.value })}
+                  rows={5}
+                  placeholder='{"Milk": ["Whole", "Oat (+20)"], "Size": ["Regular", "Large (+30)"]}'
+                />
+              </label>
               <div className="row-actions"><button type="button" onClick={() => setShowMenuModal(false)}>Cancel</button><button type="button" onClick={saveMenuItem}>Save</button></div>
             </div>
           </div>
@@ -1492,6 +1600,8 @@ export default function Dashboard() {
     )
   }
 
+  const unreadAlertCount = inventoryAlerts.filter((row) => !row.is_read).length
+
   return (
     <main className="admin-dashboard-page">
       <header className="admin-topbar">
@@ -1501,7 +1611,10 @@ export default function Dashboard() {
             <option value="all">All outlets</option>
             {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
           </select>
-          <button type="button" className="icon-btn"><Bell size={16} /></button>
+          <button type="button" className="icon-btn has-badge" onClick={() => setActivePage('monitor')}>
+            <Bell size={16} />
+            {unreadAlertCount > 0 ? <span className="badge">{unreadAlertCount > 99 ? '99+' : unreadAlertCount}</span> : null}
+          </button>
           <button type="button" className="logout" onClick={() => signOut().catch((err) => toast.error(err.message || 'Sign out failed'))}>
             <LogOut size={14} /> Logout
           </button>

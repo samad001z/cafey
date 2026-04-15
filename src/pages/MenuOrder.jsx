@@ -9,8 +9,33 @@ import './MenuOrder.css'
 
 const LAST_RECEIPT_KEY = 'qaffeine_last_receipt'
 const PENDING_PAYMENT_KEY = 'qaffeine_pending_payment_receipt'
+const MENU_CACHE_KEY = 'qaffeine_menu_cache_v1'
 const PENDING_PAYMENT_MAX_AGE_MS = 30 * 60 * 1000
 const checkoutSteps = ['Type & Table', 'Review', 'Payment']
+
+function readMenuCache() {
+  try {
+    const raw = localStorage.getItem(MENU_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed?.branches) || !Array.isArray(parsed?.menuItems)) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeMenuCache(snapshot) {
+  try {
+    localStorage.setItem(MENU_CACHE_KEY, JSON.stringify({
+      branches: Array.isArray(snapshot?.branches) ? snapshot.branches : [],
+      menuItems: Array.isArray(snapshot?.menuItems) ? snapshot.menuItems : [],
+      cachedAt: new Date().toISOString(),
+    }))
+  } catch {
+    // Ignore storage write failures.
+  }
+}
 
 const imageMenuCatalog = [
   // Signature beverages
@@ -175,8 +200,97 @@ function toFallbackItem(item, index) {
     image_url: dishImageUrl(item.name, item.category, slug),
     branch_id: null,
     is_available: true,
+    modifiers: {},
     source: 'fallback',
   }
+}
+
+function mergeMenuItemsWithFallback(dbItems) {
+  const fallbackItems = imageMenuCatalog.map(toFallbackItem)
+  return dedupeMenuItems([
+    ...(dbItems || []).map((item) => ({ ...item, source: 'db' })),
+    ...fallbackItems,
+  ])
+}
+
+function normalizeModifiers(rawModifiers) {
+  if (!rawModifiers || typeof rawModifiers !== 'object' || Array.isArray(rawModifiers)) return []
+
+  return Object.entries(rawModifiers)
+    .map(([group, values]) => {
+      if (!Array.isArray(values)) return null
+
+      const options = values
+        .map((rawOption) => {
+          const optionText = String(rawOption || '').trim()
+          if (!optionText) return null
+
+          const match = optionText.match(/\((?:\+)?\s*[₹$]?\s*([0-9]+(?:\.[0-9]+)?)\s*\)$/i)
+          const priceDelta = match ? Number(match[1]) : 0
+          const label = match ? optionText.replace(/\s*\((?:\+)?\s*[₹$]?\s*[0-9]+(?:\.[0-9]+)?\s*\)$/i, '').trim() : optionText
+
+          return {
+            label: label || optionText,
+            priceDelta: Number.isFinite(priceDelta) ? priceDelta : 0,
+          }
+        })
+        .filter(Boolean)
+
+      if (!options.length) return null
+
+      return {
+        group: String(group || '').trim(),
+        options,
+      }
+    })
+    .filter((entry) => entry?.group)
+}
+
+function getDefaultModifierSelection(groups) {
+  const selection = {}
+  for (const group of groups) {
+    const first = group.options?.[0]
+    if (first?.label) selection[group.group] = first.label
+  }
+  return selection
+}
+
+function buildModifierSignature(selection = {}) {
+  const pairs = Object.entries(selection)
+    .map(([group, value]) => [String(group).trim(), String(value).trim()])
+    .filter(([group, value]) => group && value)
+    .sort(([a], [b]) => a.localeCompare(b))
+
+  if (!pairs.length) return 'default'
+  return pairs.map(([group, value]) => `${group}:${value}`).join('|')
+}
+
+function buildCartKey(itemId, selection = {}) {
+  return `${itemId}::${buildModifierSignature(selection)}`
+}
+
+function findModifierOption(groups, groupName, optionLabel) {
+  const group = groups.find((row) => row.group === groupName)
+  if (!group) return null
+  return group.options.find((option) => option.label === optionLabel) || null
+}
+
+function calculateModifierDelta(groups, selection) {
+  return Object.entries(selection || {}).reduce((sum, [group, label]) => {
+    const option = findModifierOption(groups, group, label)
+    return sum + Number(option?.priceDelta || 0)
+  }, 0)
+}
+
+function formatModifierSummary(groups, selection) {
+  const chips = []
+  for (const [group, label] of Object.entries(selection || {})) {
+    if (!label) continue
+    const option = findModifierOption(groups, group, label)
+    const delta = Number(option?.priceDelta || 0)
+    chips.push(delta > 0 ? `${group}: ${label} (+₹${delta.toFixed(2)})` : `${group}: ${label}`)
+  }
+  return chips.join(' • ')
 }
 
 function dedupeMenuItems(items) {
@@ -280,11 +394,25 @@ function parseTableQrPayload(rawValue) {
   return { table: raw, branchId: '' }
 }
 
+function resolveApiBase(rawBase) {
+  const value = String(rawBase || '').trim()
+  if (!value) return import.meta.env.DEV ? 'http://localhost:8787' : ''
+
+  if (/^https?:\/\//i.test(value)) return value.replace(/\/$/, '')
+  if (value.startsWith('//')) return `${window.location.protocol}${value}`.replace(/\/$/, '')
+  if (value.startsWith(':')) return `${window.location.protocol}//localhost${value}`.replace(/\/$/, '')
+  if (value.startsWith('/')) return value.replace(/\/$/, '')
+  if (/^[a-z0-9.-]+:\d+$/i.test(value)) return `${window.location.protocol}//${value}`.replace(/\/$/, '')
+
+  return value.replace(/\/$/, '')
+}
+
 export default function MenuOrder() {
   const { user, profile } = useAuth()
   const [searchParams] = useSearchParams()
   const { tableNumber: routeTableNumber } = useParams()
-  const localApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
+  const localApiBase = resolveApiBase(import.meta.env.VITE_OTP_API_BASE_URL)
+  const buildApiUrl = (path) => `${localApiBase}${String(path || '')}`
   const focusItemName = String(searchParams.get('focus') || '').trim()
   const branchFromQuery = String(searchParams.get('branch') || searchParams.get('branchId') || '').trim()
 
@@ -295,6 +423,7 @@ export default function MenuOrder() {
   const [activeCategory, setActiveCategory] = useState('')
   const [cart, setCart] = useState({})
   const [loading, setLoading] = useState(true)
+  const [isUsingOfflineMenu, setIsUsingOfflineMenu] = useState(false)
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [checkoutStep, setCheckoutStep] = useState(1)
@@ -312,6 +441,9 @@ export default function MenuOrder() {
   const [scannerError, setScannerError] = useState('')
   const [manualQrValue, setManualQrValue] = useState('')
   const [isScannerReady, setIsScannerReady] = useState(false)
+  const [showModifierSheet, setShowModifierSheet] = useState(false)
+  const [modifierItem, setModifierItem] = useState(null)
+  const [modifierSelection, setModifierSelection] = useState({})
   const videoRef = useRef(null)
   const scannerStreamRef = useRef(null)
   const scannerRafRef = useRef(null)
@@ -373,14 +505,29 @@ export default function MenuOrder() {
   useEffect(() => {
     let active = true
 
+    const applyMenuSnapshot = ({ branchRows, itemRows }) => {
+      const safeBranches = branchRows ?? []
+      const mergedItems = mergeMenuItemsWithFallback(itemRows ?? [])
+
+      setBranches(safeBranches)
+      setMenuItems(mergedItems)
+      setCheckoutOutlet((prev) => prev || safeBranches[0]?.id || '')
+    }
+
     const fetchData = async () => {
       setLoading(true)
+
+      const cached = readMenuCache()
+      if (cached && active) {
+        applyMenuSnapshot({ branchRows: cached.branches, itemRows: cached.menuItems })
+        setLoading(false)
+      }
 
       const [{ data: branchData, error: branchError }, { data: itemData, error: itemError }] = await Promise.all([
         supabase.from('branches').select('id, name, is_open').order('created_at', { ascending: true }),
         supabase
           .from('menu_items')
-          .select('id, name, description, price, category, is_veg, image_url, branch_id, is_available')
+          .select('id, name, description, price, category, is_veg, image_url, branch_id, is_available, modifiers')
           .order('created_at', { ascending: true }),
       ])
 
@@ -388,29 +535,29 @@ export default function MenuOrder() {
 
       if (branchError) {
         console.error('Unable to fetch branches:', branchError)
-        toast.error('Could not load outlets.')
       }
 
       if (itemError) {
         console.error('Unable to fetch menu:', itemError)
-        toast.error('Could not load menu items.')
       }
 
-      const safeBranches = branchData ?? []
-      const safeItems = (itemData ?? []).filter((item) => item.is_available !== false)
-      const fallbackItems = imageMenuCatalog.map(toFallbackItem)
+      if (branchError || itemError) {
+        if (cached) {
+          setIsUsingOfflineMenu(true)
+          toast('Offline mode: showing cached menu snapshot.', { icon: '📶' })
+          setLoading(false)
+          return
+        }
 
-      // Merge DB items with image-derived catalog and remove duplicates.
-      const mergedItems = dedupeMenuItems([
-        ...safeItems.map((item) => ({ ...item, source: 'db' })),
-        ...fallbackItems,
-      ])
+        if (branchError) toast.error('Could not load outlets.')
+        if (itemError) toast.error('Could not load menu items.')
+        setLoading(false)
+        return
+      }
 
-      setBranches(safeBranches)
-      setMenuItems(mergedItems)
-
-      const firstOutlet = safeBranches[0]?.id || ''
-      setCheckoutOutlet((prev) => prev || firstOutlet)
+      applyMenuSnapshot({ branchRows: branchData, itemRows: itemData })
+      setIsUsingOfflineMenu(false)
+      writeMenuCache({ branches: branchData, menuItems: itemData })
       setLoading(false)
     }
 
@@ -418,6 +565,31 @@ export default function MenuOrder() {
 
     return () => {
       active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('customer-menu-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, async () => {
+        const { data, error } = await supabase
+          .from('menu_items')
+          .select('id, name, description, price, category, is_veg, image_url, branch_id, is_available, modifiers')
+          .order('created_at', { ascending: true })
+
+        if (error) {
+          console.error('Realtime menu refresh failed:', error)
+          return
+        }
+
+        setMenuItems(mergeMenuItemsWithFallback(data || []))
+        setIsUsingOfflineMenu(false)
+        writeMenuCache({ branches, menuItems: data || [] })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
   }, [])
 
@@ -521,18 +693,33 @@ export default function MenuOrder() {
     return () => window.clearTimeout(id)
   }, [focusItemName, menuItems])
 
+  const menuSkeletonRows = useMemo(() => [1, 2, 3], [])
+
   const cartItems = useMemo(() => {
     return Object.entries(cart)
-      .map(([itemId, quantity]) => {
-        const item = menuItems.find((candidate) => candidate.id === itemId)
-        if (!item || quantity <= 0) return null
+      .map(([cartKey, entry]) => {
+        const item = menuItems.find((candidate) => candidate.id === entry?.itemId)
+        if (!item || !entry || Number(entry.quantity || 0) <= 0) return null
+
         return {
           ...item,
-          quantity,
+          cartKey,
+          quantity: Number(entry.quantity || 0),
+          unitPrice: Number(entry.unitPrice ?? item.price ?? 0),
+          selectedModifiers: entry.selectedModifiers || {},
+          modifierSummary: entry.modifierSummary || '',
         }
       })
       .filter(Boolean)
   }, [cart, menuItems])
+
+  const cartQuantityByItem = useMemo(() => {
+    const map = new Map()
+    for (const item of cartItems) {
+      map.set(item.id, (map.get(item.id) || 0) + Number(item.quantity || 0))
+    }
+    return map
+  }, [cartItems])
 
   const cartItemCount = useMemo(
     () => cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
@@ -540,7 +727,7 @@ export default function MenuOrder() {
   )
 
   const subtotal = useMemo(
-    () => cartItems.reduce((sum, item) => sum + Number(item.price || 0) * item.quantity, 0),
+    () => cartItems.reduce((sum, item) => sum + Number(item.unitPrice || item.price || 0) * item.quantity, 0),
     [cartItems],
   )
 
@@ -548,20 +735,103 @@ export default function MenuOrder() {
   const packaging = cartItems.length ? 10 : 0
   const grandTotal = subtotal + gstAmount + packaging
 
-  const increment = (itemId) => {
-    setCart((prev) => ({ ...prev, [itemId]: (prev[itemId] || 0) + 1 }))
+  const increment = (cartKey) => {
+    setCart((prev) => {
+      const current = prev[cartKey]
+      if (!current) return prev
+
+      return {
+        ...prev,
+        [cartKey]: {
+          ...current,
+          quantity: Number(current.quantity || 0) + 1,
+        },
+      }
+    })
   }
 
-  const decrement = (itemId) => {
+  const decrement = (cartKey) => {
     setCart((prev) => {
-      const current = prev[itemId] || 0
-      if (current <= 1) {
+      const current = prev[cartKey]
+      if (!current) return prev
+
+      if (Number(current.quantity || 0) <= 1) {
         const copy = { ...prev }
-        delete copy[itemId]
+        delete copy[cartKey]
         return copy
       }
-      return { ...prev, [itemId]: current - 1 }
+      return {
+        ...prev,
+        [cartKey]: {
+          ...current,
+          quantity: Number(current.quantity || 0) - 1,
+        },
+      }
     })
+  }
+
+  const closeModifierSheet = () => {
+    setShowModifierSheet(false)
+    setModifierItem(null)
+    setModifierSelection({})
+  }
+
+  const addItemToCartWithModifiers = (item, selection = {}) => {
+    if (!item || item.is_available === false) {
+      toast.error('This item is currently 86ed (sold out).')
+      return
+    }
+
+    const groups = normalizeModifiers(item.modifiers)
+    const normalizedSelection = {}
+    for (const [group, value] of Object.entries(selection)) {
+      if (group && value) normalizedSelection[group] = value
+    }
+
+    const cartKey = buildCartKey(item.id, normalizedSelection)
+    const basePrice = Number(item.price || 0)
+    const modifierDelta = calculateModifierDelta(groups, normalizedSelection)
+    const unitPrice = Number((basePrice + modifierDelta).toFixed(2))
+    const modifierSummary = formatModifierSummary(groups, normalizedSelection)
+
+    setCart((prev) => {
+      const current = prev[cartKey]
+
+      return {
+        ...prev,
+        [cartKey]: {
+          itemId: item.id,
+          quantity: Number(current?.quantity || 0) + 1,
+          selectedModifiers: normalizedSelection,
+          modifierSummary,
+          unitPrice,
+        },
+      }
+    })
+  }
+
+  const openModifierPicker = (item) => {
+    if (!item) return
+    if (item.is_available === false) {
+      toast.error('This item is currently 86ed (sold out).')
+      return
+    }
+
+    const groups = normalizeModifiers(item.modifiers)
+    if (!groups.length) {
+      addItemToCartWithModifiers(item)
+      return
+    }
+
+    setModifierItem(item)
+    setModifierSelection(getDefaultModifierSelection(groups))
+    setShowModifierSheet(true)
+  }
+
+  const confirmModifierSelection = () => {
+    if (!modifierItem) return
+    addItemToCartWithModifiers(modifierItem, modifierSelection)
+    closeModifierSheet()
   }
 
   const openCheckout = () => {
@@ -664,80 +934,6 @@ export default function MenuOrder() {
     return tableNumber.trim().length > 0
   }
 
-  const persistOrder = async (razorpayOrderId = null, snapshot = null) => {
-    const sourceBranchId = snapshot?.branchId || checkoutOutlet
-    const sourceOrderType = snapshot?.orderType || orderType
-    const sourceTableNumber = sourceOrderType === 'takeaway'
-      ? null
-      : String(snapshot?.tableNumber || tableNumber.trim() || '').trim() || null
-    const sourceItems = Array.isArray(snapshot?.items) && snapshot.items.length
-      ? snapshot.items
-      : cartItems.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        unitPrice: Number(item.price || 0),
-      }))
-    const sourceTotal = Number((snapshot?.total ?? grandTotal).toFixed(2))
-
-    const orderId = crypto.randomUUID()
-
-    const payload = {
-      id: orderId,
-      customer_id: user?.id ?? null,
-      branch_id: sourceBranchId,
-      order_type: sourceOrderType,
-      table_number: sourceTableNumber,
-      status: 'placed',
-      total_amount: sourceTotal,
-      payment_status: 'paid',
-      razorpay_order_id: razorpayOrderId,
-    }
-
-    const rows = sourceItems.map((item) => ({
-      order_id: orderId,
-      menu_item_id: isUuid(item.id) ? item.id : null,
-      quantity: item.quantity,
-      unit_price: Number(item.unitPrice ?? item.price ?? 0),
-    }))
-
-    const persistViaLocalApi = async () => {
-      const response = await fetch(`${localApiBase}/api/orders/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: payload, items: rows }),
-      })
-
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok || body?.ok !== true) {
-        throw new Error(body?.error || 'Unable to save order through local API')
-      }
-
-      return body?.id || orderId
-    }
-
-    const isRlsError = (error) => {
-      const text = String(error?.message || '').toLowerCase()
-      return error?.code === '42501' || text.includes('row-level security') || text.includes('permission denied')
-    }
-
-    const { error: orderError } = await supabase
-      .from('orders')
-      .insert(payload)
-
-    if (orderError) {
-      if (!isRlsError(orderError)) throw orderError
-      return persistViaLocalApi()
-    }
-
-    const { error: orderItemsError } = await supabase.from('order_items').insert(rows)
-    if (orderItemsError) {
-      if (!isRlsError(orderItemsError)) throw orderItemsError
-      return persistViaLocalApi()
-    }
-
-    return orderId
-  }
-
   const buildBaseReceiptPayload = () => ({
     customerName,
     branchId: checkoutOutlet,
@@ -748,7 +944,8 @@ export default function MenuOrder() {
       id: item.id,
       name: item.name,
       quantity: item.quantity,
-      unitPrice: Number(item.price || 0),
+      unitPrice: Number(item.unitPrice || item.price || 0),
+      modifierSummary: item.modifierSummary || '',
     })),
     subtotal,
     gstAmount,
@@ -756,6 +953,35 @@ export default function MenuOrder() {
     total: grandTotal,
     paidAt: new Date().toISOString(),
   })
+
+  const finalizeReceiptFromPending = (pending, orderId) => {
+    const receiptPayload = {
+      ...pending,
+      paidAt: new Date().toISOString(),
+      orderId,
+      syncStatus: 'synced',
+    }
+    delete receiptPayload.initiatedAt
+
+    setReceipt(receiptPayload)
+    setCreatedOrderId(orderId)
+    setPaymentSuccess(true)
+    setCheckoutStep(3)
+    paymentHandledRef.current = true
+    sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receiptPayload))
+    sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+    setCart({})
+    setRecentOrders((prev) => [
+      {
+        id: orderId,
+        status: 'placed',
+        total_amount: Number((pending.total || 0).toFixed(2)),
+        created_at: new Date().toISOString(),
+        branch_id: pending.branchId || checkoutOutlet,
+      },
+      ...prev,
+    ].slice(0, 6))
+  }
 
   const readPendingPaymentReceipt = () => {
     try {
@@ -789,59 +1015,31 @@ export default function MenuOrder() {
 
     setPaying(true)
 
-    const baseReceiptPayload = {
-      ...pending,
-      paidAt: new Date().toISOString(),
-    }
-    delete baseReceiptPayload.initiatedAt
-
     try {
-      const recoveredOrderId = await persistOrder(null, pending)
-      const recoveredReceipt = {
-        ...baseReceiptPayload,
-        orderId: recoveredOrderId,
-        syncStatus: 'pending_verification',
+      if (!pending.razorpayOrderId) {
+        if (!silent) toast.error('Payment status is unavailable. Please retry payment.')
+        return
       }
 
-      setReceipt(recoveredReceipt)
-      setCreatedOrderId(recoveredOrderId)
-      setPaymentSuccess(true)
-      setCheckoutStep(3)
-      paymentHandledRef.current = true
-      sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(recoveredReceipt))
-      sessionStorage.removeItem(PENDING_PAYMENT_KEY)
-      setCart({})
-      setRecentOrders((prev) => [
-        {
-          id: recoveredOrderId,
-          status: 'placed',
-          total_amount: Number((pending.total || 0).toFixed(2)),
-          created_at: new Date().toISOString(),
-          branch_id: pending.branchId || checkoutOutlet,
-        },
-        ...prev,
-      ].slice(0, 6))
+      const response = await fetch(
+        buildApiUrl(`/api/razorpay/status?razorpay_order_id=${encodeURIComponent(pending.razorpayOrderId)}`),
+      )
+      const payload = await response.json().catch(() => ({}))
 
-      toast.success('Payment confirmed. Receipt generated.')
+      if (!response.ok || payload?.ok !== true) {
+        throw new Error(payload?.error || 'Unable to check payment status')
+      }
+
+      if (!payload?.verified || !payload?.orderId) {
+        if (!silent) toast('Payment is processing. Receipt will appear after confirmation.')
+        return
+      }
+
+      finalizeReceiptFromPending(pending, payload.orderId)
+      toast.success('Payment verified. Receipt generated.')
     } catch (error) {
       console.error('Receipt recovery failed:', error)
-      const fallbackOrderId = `PAY-${Date.now().toString().slice(-8)}`
-      const fallbackReceipt = {
-        ...baseReceiptPayload,
-        orderId: fallbackOrderId,
-        syncStatus: 'pending',
-      }
-
-      setReceipt(fallbackReceipt)
-      setCreatedOrderId(fallbackOrderId)
-      setPaymentSuccess(true)
-      setCheckoutStep(3)
-      paymentHandledRef.current = true
-      sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(fallbackReceipt))
-      sessionStorage.removeItem(PENDING_PAYMENT_KEY)
-      setCart({})
-
-      toast.error('Receipt restored, but automatic order sync failed. Please show this receipt ID to staff.')
+      if (!silent) toast.error(error.message || 'Unable to recover payment receipt right now')
     } finally {
       setPaying(false)
     }
@@ -880,13 +1078,6 @@ export default function MenuOrder() {
     setPaying(true)
     paymentHandledRef.current = false
 
-    const key = import.meta.env.VITE_RAZORPAY_KEY_ID
-    if (!key) {
-      toast.error('Missing VITE_RAZORPAY_KEY_ID in .env')
-      setPaying(false)
-      return
-    }
-
     const loaded = await loadRazorpayScript()
     if (!loaded) {
       toast.error('Unable to load Razorpay checkout script.')
@@ -894,83 +1085,93 @@ export default function MenuOrder() {
       return
     }
 
-    const pendingSnapshot = {
-      ...buildBaseReceiptPayload(),
-      initiatedAt: new Date().toISOString(),
-    }
-    sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pendingSnapshot))
-
-    const options = {
-      key,
-      amount: Math.round(grandTotal * 100),
-      currency: 'INR',
-      name: 'Qaffeine',
-      description: 'Menu order payment',
-      prefill: {
-        name: profile?.full_name || user?.user_metadata?.full_name || '',
-        email: user?.email || '',
-        contact: profile?.phone || user?.phone || '',
-      },
-      theme: {
-        color: '#C8853A',
-      },
-      handler: async (response) => {
-        const baseReceiptPayload = buildBaseReceiptPayload()
-
-        try {
-          const orderId = await persistOrder(response?.razorpay_order_id || null)
-          const receiptPayload = { ...baseReceiptPayload, orderId, syncStatus: 'synced' }
-
-          setReceipt(receiptPayload)
-          setCreatedOrderId(orderId)
-          setPaymentSuccess(true)
-          setCheckoutStep(3)
-          paymentHandledRef.current = true
-          sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receiptPayload))
-          sessionStorage.removeItem(PENDING_PAYMENT_KEY)
-          setCart({})
-          setRecentOrders((prev) => [
-            {
-              id: orderId,
-              status: 'placed',
-              total_amount: Number(grandTotal.toFixed(2)),
-              created_at: new Date().toISOString(),
-              branch_id: checkoutOutlet,
-            },
-            ...prev,
-          ].slice(0, 6))
-          toast.success('Order placed successfully!')
-        } catch (error) {
-          console.error('Order save failed:', error)
-          const fallbackOrderId = `PAY-${Date.now().toString().slice(-8)}`
-          const fallbackReceipt = { ...baseReceiptPayload, orderId: fallbackOrderId, syncStatus: 'pending' }
-
-          setReceipt(fallbackReceipt)
-          setCreatedOrderId(fallbackOrderId)
-          setPaymentSuccess(true)
-          setCheckoutStep(3)
-          paymentHandledRef.current = true
-          sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(fallbackReceipt))
-          sessionStorage.removeItem(PENDING_PAYMENT_KEY)
-          setCart({})
-
-          toast.error('Payment captured. Receipt generated, but order sync is pending. Please contact support with this receipt ID.')
-        } finally {
-          setPaying(false)
-        }
-      },
-      modal: {
-        ondismiss: () => {
-          setPaying(false)
-          if (!paymentHandledRef.current && readPendingPaymentReceipt()) {
-            toast('Finalizing your payment receipt...')
-            recoverReceiptAfterPayment({ silent: true })
-          }
-        },
-      },
-    }
+    const baseReceiptPayload = buildBaseReceiptPayload()
 
     try {
+      const createResponse = await fetch(buildApiUrl('/api/razorpay/create-order'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: user?.id || null,
+          branchId: checkoutOutlet,
+          orderType,
+          tableNumber: orderType === 'takeaway' ? null : tableNumber.trim() || null,
+          totalAmount: grandTotal,
+          subtotal,
+          gstAmount,
+          packaging,
+          customerName,
+          outletName: branchNameMap.get(checkoutOutlet) || 'Qaffeine Outlet',
+          items: cartItems.map((item) => ({
+            menu_item_id: isUuid(item.id) ? item.id : null,
+            quantity: item.quantity,
+            unit_price: Number(item.unitPrice || item.price || 0),
+            name: item.name,
+            modifierSummary: item.modifierSummary || '',
+          })),
+        }),
+      })
+
+      const createPayload = await createResponse.json().catch(() => ({}))
+      if (!createResponse.ok || createPayload?.ok !== true) {
+        throw new Error(createPayload?.error || 'Unable to initialize payment order')
+      }
+
+      const pendingSnapshot = {
+        ...baseReceiptPayload,
+        initiatedAt: new Date().toISOString(),
+        razorpayOrderId: createPayload.razorpayOrderId,
+      }
+      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pendingSnapshot))
+
+      const options = {
+        key: createPayload.key,
+        order_id: createPayload.razorpayOrderId,
+        amount: Number(createPayload.amount),
+        currency: createPayload.currency || 'INR',
+        name: 'Qaffeine',
+        description: 'Menu order payment',
+        prefill: {
+          name: profile?.full_name || user?.user_metadata?.full_name || '',
+          email: user?.email || '',
+          contact: profile?.phone || user?.phone || '',
+        },
+        theme: {
+          color: '#C8853A',
+        },
+        handler: async (response) => {
+          try {
+            const verifyResponse = await fetch(buildApiUrl('/api/razorpay/verify'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            })
+
+            const verifyPayload = await verifyResponse.json().catch(() => ({}))
+            if (!verifyResponse.ok || verifyPayload?.ok !== true || !verifyPayload?.orderId) {
+              throw new Error(verifyPayload?.error || 'Payment verification failed')
+            }
+
+            finalizeReceiptFromPending(pendingSnapshot, verifyPayload.orderId)
+            toast.success('Order placed successfully!')
+          } catch (error) {
+            console.error('Payment verify/create failed:', error)
+            toast.error(error.message || 'Payment verification failed')
+          } finally {
+            setPaying(false)
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaying(false)
+            if (!paymentHandledRef.current && readPendingPaymentReceipt()) {
+              toast('Checking payment confirmation...')
+              recoverReceiptAfterPayment({ silent: true })
+            }
+          },
+        },
+      }
+
       const razorpay = new window.Razorpay(options)
       razorpay.open()
     } catch (error) {
@@ -1197,6 +1398,7 @@ export default function MenuOrder() {
               <Search size={18} />
               <input
                 type="search"
+                aria-label="Search menu items"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search coffee, shakes, snacks..."
@@ -1206,6 +1408,7 @@ export default function MenuOrder() {
             <label className="mo-outlet-picker">
               <Store size={17} />
               <select
+                aria-label="Filter menu by outlet"
                 value={selectedOutlet}
                 onChange={(event) => setSelectedOutlet(event.target.value)}
               >
@@ -1219,12 +1422,42 @@ export default function MenuOrder() {
             </label>
           </div>
 
-          {loading ? <p className="mo-info">Loading menu...</p> : null}
+          {isUsingOfflineMenu ? (
+            <p className="mo-offline-banner" role="status" aria-live="polite">
+              You are viewing a cached menu snapshot while connection is unstable.
+            </p>
+          ) : null}
+
+          {loading ? (
+            <div className="mo-skeleton-wrap" aria-label="Loading menu cards" aria-live="polite">
+              {menuSkeletonRows.map((sectionIndex) => (
+                <section key={`s-${sectionIndex}`} className="mo-skeleton-section">
+                  <div className="mo-skeleton-head" />
+                  <div className="mo-skeleton-list">
+                    {menuSkeletonRows.map((rowIndex) => (
+                      <article key={`s-${sectionIndex}-${rowIndex}`} className="mo-skeleton-card" aria-hidden="true">
+                        <div className="mo-skeleton-lines">
+                          <span className="line title" />
+                          <span className="line body" />
+                          <span className="line body short" />
+                          <span className="line meta" />
+                        </div>
+                        <div className="mo-skeleton-media">
+                          <span className="media" />
+                          <span className="pill" />
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : null}
           {!loading && !groupedItems.length ? (
             <p className="mo-info">No items found for your filters.</p>
           ) : null}
 
-          {groupedItems.map(([category, items]) => (
+          {!loading && groupedItems.map(([category, items]) => (
             <section key={category} id={`cat-${category}`} className="mo-category-section">
               <div className="mo-category-head">
                 <h3>{category}</h3>
@@ -1233,14 +1466,23 @@ export default function MenuOrder() {
 
               <div className="mo-item-list">
                 {items.map((item) => {
-                  const qty = cart[item.id] || 0
+                  const itemQty = cartQuantityByItem.get(item.id) || 0
                   const rating = item.rating ?? 4.7
+                  const hasModifiers = normalizeModifiers(item.modifiers).length > 0
+                  const isSoldOut = item.is_available === false
+                  const defaultCartKey = buildCartKey(item.id, {})
+                  const defaultQty = Number(cart[defaultCartKey]?.quantity || 0)
                   return (
-                    <article key={item.id} className="mo-item-card" data-item-id={item.id}>
+                    <article
+                      key={item.id}
+                      className={`mo-item-card${isSoldOut ? ' is-86ed' : ''}`}
+                      data-item-id={item.id}
+                    >
                       <div className="mo-item-left">
                         <div className="mo-item-headline">
                           <h4>{item.name}</h4>
                           <span className={`veg-dot ${item.is_veg ? 'veg' : 'non-veg'}`} />
+                          {isSoldOut ? <span className="mo-86-badge">86ed</span> : null}
                         </div>
                         <p>{item.description || 'Freshly prepared and served with Qaffeine signature style.'}</p>
                         <div className="mo-item-meta">
@@ -1248,6 +1490,7 @@ export default function MenuOrder() {
                           <span>
                             <Star size={14} /> {rating}
                           </span>
+                          {hasModifiers ? <span className="mo-mod-pill">Customizable</span> : null}
                         </div>
                       </div>
 
@@ -1261,17 +1504,21 @@ export default function MenuOrder() {
                           }}
                         />
 
-                        {qty === 0 ? (
-                          <button type="button" onClick={() => increment(item.id)}>
+                        {hasModifiers ? (
+                          <button type="button" onClick={() => openModifierPicker(item)} disabled={isSoldOut}>
+                            {itemQty > 0 ? `Add More (${itemQty})` : 'Customize'}
+                          </button>
+                        ) : defaultQty === 0 ? (
+                          <button type="button" onClick={() => addItemToCartWithModifiers(item)} disabled={isSoldOut}>
                             Add
                           </button>
                         ) : (
                           <div className="mo-stepper">
-                            <button type="button" onClick={() => decrement(item.id)}>
+                            <button type="button" aria-label={`Decrease quantity for ${item.name}`} onClick={() => decrement(defaultCartKey)}>
                               -
                             </button>
-                            <span>{qty}</span>
-                            <button type="button" onClick={() => increment(item.id)}>
+                            <span>{defaultQty}</span>
+                            <button type="button" aria-label={`Increase quantity for ${item.name}`} onClick={() => increment(defaultCartKey)} disabled={isSoldOut}>
                               +
                             </button>
                           </div>
@@ -1297,17 +1544,19 @@ export default function MenuOrder() {
             <>
               <div className="mo-cart-items">
                 {cartItems.map((item) => (
-                  <article key={item.id}>
+                  <article key={item.cartKey}>
                     <div>
                       <h4>{item.name}</h4>
-                      <p>₹{Number(item.price || 0).toFixed(0)} each</p>
+                      <p>₹{Number(item.unitPrice || item.price || 0).toFixed(2)} each</p>
+                      {item.modifierSummary ? <p className="mo-modifier-line">{item.modifierSummary}</p> : null}
+                      {item.is_available === false ? <p className="mo-modifier-line">Item is currently 86ed</p> : null}
                     </div>
                     <div className="mo-stepper compact">
-                      <button type="button" onClick={() => decrement(item.id)}>
+                      <button type="button" aria-label={`Decrease quantity for ${item.name}`} onClick={() => decrement(item.cartKey)}>
                         -
                       </button>
                       <span>{item.quantity}</span>
-                      <button type="button" onClick={() => increment(item.id)}>
+                      <button type="button" aria-label={`Increase quantity for ${item.name}`} onClick={() => increment(item.cartKey)} disabled={item.is_available === false}>
                         +
                       </button>
                     </div>
@@ -1372,6 +1621,69 @@ export default function MenuOrder() {
       </div>
 
       <AnimatePresence>
+        {showModifierSheet && modifierItem ? (
+          <motion.div
+            className="mo-mod-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeModifierSheet}
+          >
+            <motion.section
+              className="mo-mod-sheet"
+              initial={{ y: 42, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 54, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header>
+                <h3>Customize Your Drink</h3>
+                <button type="button" className="mo-close" onClick={closeModifierSheet} aria-label="Close item customization">
+                  <X size={16} />
+                </button>
+              </header>
+
+              <p className="mo-mod-subtitle">{modifierItem.name}</p>
+
+              <div className="mo-mod-groups">
+                {normalizeModifiers(modifierItem.modifiers).map((group) => (
+                  <section key={group.group} className="mo-mod-group">
+                    <h4>{group.group}</h4>
+                    <div className="mo-mod-options">
+                      {group.options.map((option) => {
+                        const active = modifierSelection[group.group] === option.label
+                        return (
+                          <button
+                            key={`${group.group}-${option.label}`}
+                            type="button"
+                            className={active ? 'active' : ''}
+                            onClick={() => setModifierSelection((prev) => ({ ...prev, [group.group]: option.label }))}
+                          >
+                            <span>{option.label}</span>
+                            {option.priceDelta > 0 ? <em>+₹{option.priceDelta.toFixed(2)}</em> : <em>Included</em>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+
+              <footer>
+                <p>
+                  Item total: ₹{(Number(modifierItem.price || 0) + calculateModifierDelta(normalizeModifiers(modifierItem.modifiers), modifierSelection)).toFixed(2)}
+                </p>
+                <button type="button" className="next" onClick={confirmModifierSelection}>
+                  Add to Cart
+                </button>
+              </footer>
+            </motion.section>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {isCheckoutOpen ? (
           <motion.div
             className="mo-modal-backdrop"
@@ -1386,7 +1698,7 @@ export default function MenuOrder() {
               exit={{ y: 80, opacity: 0 }}
               transition={{ duration: 0.28 }}
             >
-              <button type="button" className="mo-close" onClick={closeCheckout}>
+              <button type="button" className="mo-close" onClick={closeCheckout} aria-label="Close checkout">
                 <X size={16} />
               </button>
 
@@ -1478,11 +1790,12 @@ export default function MenuOrder() {
                   <h3>Review Order Summary</h3>
                   <div className="mo-review-list">
                     {cartItems.map((item) => (
-                      <div key={item.id}>
-                        <span>
-                          {item.name} × {item.quantity}
+                      <div key={item.cartKey}>
+                        <span className="mo-review-item-name">
+                          <b>{item.name} × {item.quantity}</b>
+                          {item.modifierSummary ? <small>{item.modifierSummary}</small> : null}
                         </span>
-                        <strong>₹{(Number(item.price || 0) * item.quantity).toFixed(2)}</strong>
+                        <strong>₹{(Number(item.unitPrice || item.price || 0) * item.quantity).toFixed(2)}</strong>
                       </div>
                     ))}
                   </div>
@@ -1589,7 +1902,10 @@ export default function MenuOrder() {
                             </div>
                             {receipt.items.map((item) => (
                               <div key={`${item.id}-${item.name}`} className="mo-receipt-line-row" role="row">
-                                <span>{item.name}</span>
+                                <span>
+                                  {item.name}
+                                  {item.modifierSummary ? <small className="mo-receipt-modifiers">{item.modifierSummary}</small> : null}
+                                </span>
                                 <span>{item.quantity}</span>
                                 <span>₹{item.unitPrice.toFixed(2)}</span>
                                 <strong>₹{(item.unitPrice * item.quantity).toFixed(2)}</strong>

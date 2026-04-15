@@ -34,12 +34,21 @@ Set these environment variables in Vercel:
 - `VITE_OTP_API_BASE_URL` (Render API URL if using helper API)
 - `VITE_GOOGLE_PLACE_ID` (optional)
 - `VITE_RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
 - `VITE_DEMO_ADMIN_EMAIL` (optional)
 - `VITE_DEMO_ADMIN_PASSWORD` (optional)
 - `VITE_DEMO_STAFF_EMPLOYEE_ID` (optional)
 - `VITE_DEMO_STAFF_PASSWORD` (optional)
 
 For Vercel-only deployment, set `VITE_OTP_API_BASE_URL` to empty (or do not define it).
+
+Razorpay webhook endpoint (recommended):
+
+- URL: `https://<your-domain>/api/razorpay/webhook`
+- Events: at least `payment.captured` and `order.paid`
+- Secret: must match `RAZORPAY_WEBHOOK_SECRET`.
 
 ## 2) API helper on Render
 
@@ -76,6 +85,7 @@ Important: Never expose `SUPABASE_SERVICE_ROLE_KEY` in Vercel frontend variables
 - Do not commit `.env` files.
 - Rotate any previously exposed keys immediately.
 - Use production Razorpay key (`rzp_live_...`) only in production env.
+- Keep `RAZORPAY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` server-only (never in frontend bundle).
 - Ensure all asset URLs are HTTPS (avoid localhost URLs in checkout metadata).
 - Restrict CORS origins in backend (`OTP_ALLOWED_ORIGIN`).
 

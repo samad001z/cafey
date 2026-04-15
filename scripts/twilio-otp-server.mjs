@@ -21,6 +21,26 @@ function loadDotEnv() {
 
 loadDotEnv()
 
+let razorpayHandlersPromise = null
+
+async function getRazorpayHandlers() {
+  if (!razorpayHandlersPromise) {
+    razorpayHandlersPromise = Promise.all([
+      import('../api/razorpay/create-order.js'),
+      import('../api/razorpay/verify.js'),
+      import('../api/razorpay/status.js'),
+      import('../api/razorpay/webhook.js'),
+    ]).then(([createOrder, verify, status, webhook]) => ({
+      createOrderHandler: createOrder.default,
+      verifyHandler: verify.default,
+      statusHandler: status.default,
+      webhookHandler: webhook.default,
+    }))
+  }
+
+  return razorpayHandlersPromise
+}
+
 const port = Number(process.env.OTP_SERVER_PORT || 8787)
 const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -55,6 +75,26 @@ function sendJson(res, statusCode, payload) {
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   })
   res.end(JSON.stringify(payload))
+}
+
+function addExpressLikeResponseHelpers(res) {
+  // Reuse Vercel-style API handlers by providing a tiny status/json adapter.
+  res.status = (statusCode) => {
+    res.__statusCode = statusCode
+    return res
+  }
+
+  res.json = (payload) => {
+    sendJson(res, res.__statusCode || 200, payload)
+  }
+
+  return res
+}
+
+async function runApiHandler(handler, req, res, query = {}) {
+  req.query = query
+  addExpressLikeResponseHelpers(res)
+  await handler(req, res)
 }
 
 function ensureTwilioReady() {
@@ -388,6 +428,33 @@ const server = createServer(async (req, res) => {
       sendJson(res, 400, { ok: false, error: error.message || 'Unable to fetch reviews' })
       return
     }
+  }
+
+  if (req.url?.startsWith('/api/razorpay/status') && (req.method === 'GET' || req.method === 'POST')) {
+    const { statusHandler } = await getRazorpayHandlers()
+    const url = new URL(req.url, `http://localhost:${port}`)
+    await runApiHandler(statusHandler, req, res, {
+      razorpay_order_id: url.searchParams.get('razorpay_order_id') || '',
+    })
+    return
+  }
+
+  if (req.url === '/api/razorpay/create-order' && req.method === 'POST') {
+    const { createOrderHandler } = await getRazorpayHandlers()
+    await runApiHandler(createOrderHandler, req, res)
+    return
+  }
+
+  if (req.url === '/api/razorpay/verify' && req.method === 'POST') {
+    const { verifyHandler } = await getRazorpayHandlers()
+    await runApiHandler(verifyHandler, req, res)
+    return
+  }
+
+  if (req.url === '/api/razorpay/webhook' && req.method === 'POST') {
+    const { webhookHandler } = await getRazorpayHandlers()
+    await runApiHandler(webhookHandler, req, res)
+    return
   }
 
   if (req.method !== 'POST') {

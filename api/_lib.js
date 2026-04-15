@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -8,6 +9,10 @@ const defaultPlaceId = process.env.GOOGLE_PLACE_ID || process.env.VITE_GOOGLE_PL
 const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID
+
+const razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || ''
+const razorpaySecret = process.env.RAZORPAY_SECRET || ''
+const razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || razorpaySecret
 
 export const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey, {
@@ -41,10 +46,206 @@ export async function readJsonBody(req) {
   }
 }
 
+export async function readRawBody(req) {
+  if (typeof req.body === 'string') return req.body
+  if (Buffer.isBuffer(req.body)) return req.body.toString('utf8')
+  if (req.body && typeof req.body === 'object') return JSON.stringify(req.body)
+
+  const chunks = []
+  for await (const chunk of req) chunks.push(chunk)
+  return Buffer.concat(chunks).toString('utf8')
+}
+
 export function requireSupabaseAdmin() {
   if (!supabaseAdmin) {
     throw new Error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in server environment.')
   }
+}
+
+function requireRazorpayConfig() {
+  if (!razorpayKeyId || !razorpaySecret) {
+    throw new Error('Missing RAZORPAY_KEY_ID or RAZORPAY_SECRET in server environment.')
+  }
+}
+
+function razorpayAuthHeader() {
+  return `Basic ${Buffer.from(`${razorpayKeyId}:${razorpaySecret}`).toString('base64')}`
+}
+
+export function getRazorpayPublicConfig() {
+  requireRazorpayConfig()
+  return { keyId: razorpayKeyId }
+}
+
+export async function createRazorpayOrder({ amountPaise, receipt, notes = {} }) {
+  requireRazorpayConfig()
+
+  const response = await fetch('https://api.razorpay.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      Authorization: razorpayAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      amount: Number(amountPaise),
+      currency: 'INR',
+      receipt,
+      notes,
+    }),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok || !payload?.id) {
+    throw new Error(payload?.error?.description || payload?.error?.reason || 'Unable to create Razorpay order')
+  }
+
+  return payload
+}
+
+export function verifyRazorpayCheckoutSignature({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) {
+  requireRazorpayConfig()
+  const signedPayload = `${String(razorpayOrderId)}|${String(razorpayPaymentId)}`
+  const digest = crypto
+    .createHmac('sha256', razorpaySecret)
+    .update(signedPayload)
+    .digest('hex')
+
+  return digest === String(razorpaySignature || '')
+}
+
+export function verifyRazorpayWebhookSignature({ rawBody, receivedSignature }) {
+  if (!razorpayWebhookSecret) {
+    throw new Error('Missing RAZORPAY_WEBHOOK_SECRET (or RAZORPAY_SECRET fallback) in server environment.')
+  }
+
+  const digest = crypto
+    .createHmac('sha256', razorpayWebhookSecret)
+    .update(String(rawBody || ''))
+    .digest('hex')
+
+  return digest === String(receivedSignature || '')
+}
+
+export async function createPaymentIntent({ razorpayOrderId, customerId, branchId, orderPayload, itemsPayload, amount }) {
+  requireSupabaseAdmin()
+
+  const payload = {
+    razorpay_order_id: String(razorpayOrderId),
+    customer_id: customerId || null,
+    branch_id: branchId,
+    order_payload: orderPayload,
+    items_payload: itemsPayload,
+    amount: Number(amount || 0),
+    currency: 'INR',
+    status: 'created',
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('payment_intents')
+    .upsert(payload, { onConflict: 'razorpay_order_id' })
+    .select('id, razorpay_order_id, status')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function getPaymentIntentByRazorpayOrderId(razorpayOrderId) {
+  requireSupabaseAdmin()
+
+  const { data, error } = await supabaseAdmin
+    .from('payment_intents')
+    .select('id, razorpay_order_id, status, order_payload, items_payload, created_order_id, branch_id, amount')
+    .eq('razorpay_order_id', String(razorpayOrderId))
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export async function getOrderByRazorpayOrderId(razorpayOrderId) {
+  requireSupabaseAdmin()
+
+  const { data, error } = await supabaseAdmin
+    .from('orders')
+    .select('id, razorpay_order_id, created_at, total_amount, status')
+    .eq('razorpay_order_id', String(razorpayOrderId))
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export async function finalizeVerifiedPayment({ razorpayOrderId, razorpayPaymentId }) {
+  requireSupabaseAdmin()
+
+  const existingOrder = await getOrderByRazorpayOrderId(razorpayOrderId)
+  if (existingOrder?.id) {
+    return { orderId: existingOrder.id, idempotent: true }
+  }
+
+  const intent = await getPaymentIntentByRazorpayOrderId(razorpayOrderId)
+  if (!intent) {
+    throw new Error('Payment intent not found for this Razorpay order')
+  }
+
+  if (intent.created_order_id) {
+    return { orderId: intent.created_order_id, idempotent: true }
+  }
+
+  const orderPayload = {
+    ...(intent.order_payload || {}),
+    id: crypto.randomUUID(),
+    razorpay_order_id: String(razorpayOrderId),
+    payment_status: 'paid',
+    status: intent.order_payload?.status || 'placed',
+  }
+
+  const normalizedItems = Array.isArray(intent.items_payload)
+    ? intent.items_payload
+    : []
+
+  const orderItems = normalizedItems.map((row) => ({
+    order_id: orderPayload.id,
+    menu_item_id: row.menu_item_id || null,
+    quantity: Number(row.quantity || 1),
+    unit_price: Number(row.unit_price || 0),
+  }))
+
+  const { error: orderInsertError } = await supabaseAdmin
+    .from('orders')
+    .insert(orderPayload)
+
+  if (orderInsertError) {
+    if (orderInsertError.code === '23505') {
+      const duplicate = await getOrderByRazorpayOrderId(razorpayOrderId)
+      if (duplicate?.id) return { orderId: duplicate.id, idempotent: true }
+    }
+    throw orderInsertError
+  }
+
+  if (orderItems.length) {
+    const { error: itemsInsertError } = await supabaseAdmin
+      .from('order_items')
+      .insert(orderItems)
+
+    if (itemsInsertError) throw itemsInsertError
+  }
+
+  const { error: intentUpdateError } = await supabaseAdmin
+    .from('payment_intents')
+    .update({
+      status: 'verified',
+      created_order_id: orderPayload.id,
+      razorpay_payment_id: String(razorpayPaymentId || ''),
+      verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', intent.id)
+
+  if (intentUpdateError) throw intentUpdateError
+
+  return { orderId: orderPayload.id, idempotent: false }
 }
 
 export function resolvePlaceId(req) {

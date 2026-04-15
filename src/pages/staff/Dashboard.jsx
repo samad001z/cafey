@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Clock3, ClipboardList, LogIn, LogOut, Minus, Plus, ReceiptText, Search, ShoppingBag, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bell, Clock3, ClipboardList, LogIn, LogOut, Minus, Plus, ReceiptText, Search, ShoppingBag, Timer, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -7,11 +7,13 @@ import './Dashboard.css'
 
 const tabs = {
   ORDERS: 'orders',
+  KDS: 'kds',
   CHECK: 'check',
   HISTORY: 'history',
 }
 
 const ACTIVE_ORDER_STATUSES = ['placed', 'confirmed', 'preparing', 'ready']
+const LIVE_ORDER_MAX_AGE_MINUTES = 60
 
 function initialsFromName(name) {
   const value = String(name || '').trim()
@@ -52,6 +54,66 @@ function minutesAgo(createdAt, now) {
   return `${mins} min ago`
 }
 
+function elapsedMinutes(createdAt, now) {
+  const diffMs = now.getTime() - new Date(createdAt).getTime()
+  return Math.max(0, Math.floor(diffMs / 60000))
+}
+
+function elapsedClock(createdAt, now) {
+  const diffMs = Math.max(0, now.getTime() - new Date(createdAt).getTime())
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const mm = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0')
+  const ss = String(totalSeconds % 60).padStart(2, '0')
+  const hh = Math.floor(totalSeconds / 3600)
+  if (hh > 0) return `${String(hh).padStart(2, '0')}:${mm}:${ss}`
+  return `${mm}:${ss}`
+}
+
+function urgencyFromMinutes(mins) {
+  if (mins < 5) return 'green'
+  if (mins < 10) return 'amber'
+  return 'red'
+}
+
+function playBellChime() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return
+
+    const ctx = new Ctx()
+    const now = ctx.currentTime
+
+    const gain = ctx.createGain()
+    gain.connect(ctx.destination)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.045, now + 0.03)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85)
+
+    const toneA = ctx.createOscillator()
+    toneA.type = 'sine'
+    toneA.frequency.setValueAtTime(1046.5, now)
+    toneA.frequency.exponentialRampToValueAtTime(784.0, now + 0.32)
+    toneA.connect(gain)
+
+    const toneB = ctx.createOscillator()
+    toneB.type = 'triangle'
+    toneB.frequency.setValueAtTime(1318.5, now + 0.06)
+    toneB.frequency.exponentialRampToValueAtTime(987.8, now + 0.45)
+    toneB.connect(gain)
+
+    toneA.start(now)
+    toneB.start(now + 0.06)
+    toneA.stop(now + 0.5)
+    toneB.stop(now + 0.7)
+
+    window.setTimeout(() => {
+      ctx.close().catch(() => {})
+    }, 900)
+  } catch {
+    // Ignore audio permission/runtime errors.
+  }
+}
+
 function statusAction(orderStatus) {
   if (orderStatus === 'placed') return { label: 'Accept', next: 'confirmed', tone: 'green' }
   if (orderStatus === 'confirmed') return { label: 'Start Preparing', next: 'preparing', tone: 'amber' }
@@ -66,6 +128,12 @@ function todayIsoDate() {
   const m = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+function isWithinLiveOrderWindow(createdAt) {
+  if (!createdAt) return false
+  const ageMs = Date.now() - new Date(createdAt).getTime()
+  return ageMs >= 0 && ageMs <= LIVE_ORDER_MAX_AGE_MINUTES * 60 * 1000
 }
 
 export default function Dashboard() {
@@ -102,6 +170,8 @@ export default function Dashboard() {
     tableNumber: '',
     collectedAmount: '',
   })
+  const seenPlacedOrderIdsRef = useRef(new Set())
+  const chimeReadyRef = useRef(false)
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
@@ -212,6 +282,35 @@ export default function Dashboard() {
     }
   }, [localApiBase, profile?.branch_id])
 
+  useEffect(() => {
+    const placedIds = new Set(
+      liveOrders
+        .filter((order) => order.status === 'placed')
+        .map((order) => order.id),
+    )
+
+    if (!chimeReadyRef.current) {
+      seenPlacedOrderIdsRef.current = placedIds
+      chimeReadyRef.current = true
+      return
+    }
+
+    let hasNewPlacedOrder = false
+    for (const id of placedIds) {
+      if (!seenPlacedOrderIdsRef.current.has(id)) {
+        hasNewPlacedOrder = true
+        break
+      }
+    }
+
+    if (hasNewPlacedOrder && activeTab === tabs.KDS) {
+      playBellChime()
+      toast.success('New order ticket arrived', { icon: '🔔' })
+    }
+
+    seenPlacedOrderIdsRef.current = placedIds
+  }, [activeTab, liveOrders])
+
   const fetchLiveOrders = async () => {
     if (!profile?.branch_id) {
       setLiveOrders([])
@@ -239,7 +338,9 @@ export default function Dashboard() {
         if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || 'Unable to fetch live orders')
 
         const orderRows = payload.orders || []
-        const activeRows = orderRows.filter((row) => ACTIVE_ORDER_STATUSES.includes(row.status))
+        const activeRows = orderRows.filter(
+          (row) => ACTIVE_ORDER_STATUSES.includes(row.status) && isWithinLiveOrderWindow(row.created_at),
+        )
         setTodayOrders(orderRows)
         setLiveOrders(activeRows)
         setItemsByOrderId(payload.itemsByOrderId || {})
@@ -254,7 +355,9 @@ export default function Dashboard() {
     }
 
     const orderRows = ordersData || []
-    const activeRows = orderRows.filter((row) => ACTIVE_ORDER_STATUSES.includes(row.status))
+    const activeRows = orderRows.filter(
+      (row) => ACTIVE_ORDER_STATUSES.includes(row.status) && isWithinLiveOrderWindow(row.created_at),
+    )
     setTodayOrders(orderRows)
     setLiveOrders(activeRows)
 
@@ -626,6 +729,26 @@ export default function Dashboard() {
     return cells
   }, [attendanceHistory, displayMonth])
 
+  const kdsOrders = useMemo(
+    () => [...liveOrders].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    [liveOrders],
+  )
+
+  const allDaySummary = useMemo(() => {
+    const counts = new Map()
+
+    for (const order of kdsOrders) {
+      const items = itemsByOrderId[order.id] || []
+      for (const item of items) {
+        const key = String(item.name || 'Custom item')
+        counts.set(key, (counts.get(key) || 0) + Number(item.quantity || 0))
+      }
+    }
+
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [itemsByOrderId, kdsOrders])
+
   return (
     <main className="staff-dashboard-page">
       <section className="staff-dashboard-shell">
@@ -643,6 +766,13 @@ export default function Dashboard() {
               onClick={() => setActiveTab(tabs.ORDERS)}
             >
               <ReceiptText size={16} /> Live Orders
+            </button>
+            <button
+              type="button"
+              className={activeTab === tabs.KDS ? 'active' : ''}
+              onClick={() => setActiveTab(tabs.KDS)}
+            >
+              <Timer size={16} /> Kitchen Display
             </button>
             <button
               type="button"
@@ -842,7 +972,12 @@ export default function Dashboard() {
                 <article className="counter-receipt-card" aria-label="Counter receipt">
                   <header>
                     <h2>Counter Receipt</h2>
-                    <strong>#{counterReceipt.orderId.slice(0, 8).toUpperCase()}</strong>
+                    <div className="receipt-head-actions">
+                      <strong>#{counterReceipt.orderId.slice(0, 8).toUpperCase()}</strong>
+                      <button type="button" className="print-receipt-btn" onClick={() => window.print()}>
+                        Thermal Print
+                      </button>
+                    </div>
                   </header>
                   <p>{new Date(counterReceipt.createdAt).toLocaleString()} · {counterReceipt.branchName}</p>
                   <div className="receipt-items-list">
@@ -861,6 +996,19 @@ export default function Dashboard() {
               ) : null}
 
               {loadingOrders ? <p className="muted">Loading branch orders...</p> : null}
+              {loadingOrders ? (
+                <div className="orders-skeleton-grid" aria-hidden="true">
+                  {[1, 2, 3].map((n) => (
+                    <article key={`sk-${n}`} className="order-skeleton-card">
+                      <span className="line title" />
+                      <span className="line body" />
+                      <span className="line body short" />
+                      <span className="line body short" />
+                      <span className="line action" />
+                    </article>
+                  ))}
+                </div>
+              ) : null}
               {!loadingOrders && !liveOrders.length ? <p className="muted">No active orders at the moment.</p> : null}
 
               <div className="orders-list">
@@ -868,7 +1016,7 @@ export default function Dashboard() {
                   const action = statusAction(order.status)
                   const list = itemsByOrderId[order.id] || []
                   return (
-                    <article key={order.id} className={`order-card ${order.status === 'placed' ? 'is-new' : ''}`}>
+                    <article key={order.id} className="order-card">
                       <header>
                         <h2>Order #{order.id.slice(0, 8)}</h2>
                         <span>{order.order_type === 'takeaway' ? 'Takeaway' : order.table_number || 'Table Order'}</span>
@@ -927,6 +1075,92 @@ export default function Dashboard() {
                   </div>
                 ) : null}
               </div>
+            </div>
+          ) : null}
+
+          {activeTab === tabs.KDS ? (
+            <div className="kds-panel">
+              <div className="kds-head">
+                <div>
+                  <h1>Kitchen Display System</h1>
+                  <p>Real-time prep board for active branch tickets.</p>
+                </div>
+                <div className="kds-chime-pill">
+                  <Bell size={15} /> Chime on new orders
+                </div>
+              </div>
+
+              <section className="kds-summary">
+                <header>
+                  <h2>All Day Pending</h2>
+                  <span>{allDaySummary.length} unique items</span>
+                </header>
+
+                {!allDaySummary.length ? <p className="muted">No pending items right now.</p> : null}
+
+                {allDaySummary.length ? (
+                  <div className="kds-summary-grid">
+                    {allDaySummary.map(([name, qty]) => (
+                      <article key={`sum-${name}`}>
+                        <strong>{qty}x</strong>
+                        <p>{name}</p>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+
+              {!kdsOrders.length ? <p className="muted">No active kitchen tickets.</p> : null}
+
+              {kdsOrders.length ? (
+                <section className="kds-ticket-grid" aria-live="polite">
+                  {kdsOrders.map((order) => {
+                    const mins = elapsedMinutes(order.created_at, now)
+                    const urgency = urgencyFromMinutes(mins)
+                    const action = statusAction(order.status)
+                    const list = itemsByOrderId[order.id] || []
+
+                    return (
+                      <article key={`kds-${order.id}`} className={`kds-ticket urgency-${urgency}`}>
+                        <header>
+                          <h2>#{order.id.slice(0, 8).toUpperCase()}</h2>
+                          <span className={`status ${order.status}`}>{order.status}</span>
+                        </header>
+
+                        <p className="kds-meta">
+                          {order.order_type === 'takeaway' ? 'Takeaway' : order.table_number || 'Table'}
+                        </p>
+
+                        <p className="kds-elapsed">
+                          <Clock3 size={14} /> {elapsedClock(order.created_at, now)}
+                        </p>
+
+                        <ul>
+                          {list.length ? list.map((item, idx) => (
+                            <li key={`${order.id}-k-${idx}`}>
+                              <strong>{item.quantity}x</strong> {item.name}
+                            </li>
+                          )) : <li>No item details</li>}
+                        </ul>
+
+                        <footer>
+                          <span>₹{Number(order.total_amount || 0).toFixed(2)}</span>
+                          {action ? (
+                            <button
+                              type="button"
+                              className={`action ${action.tone}`}
+                              disabled={updatingOrderId === order.id}
+                              onClick={() => advanceOrderStatus(order.id, action.next)}
+                            >
+                              {updatingOrderId === order.id ? 'Updating...' : action.label}
+                            </button>
+                          ) : null}
+                        </footer>
+                      </article>
+                    )
+                  })}
+                </section>
+              ) : null}
             </div>
           ) : null}
 

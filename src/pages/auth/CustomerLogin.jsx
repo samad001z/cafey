@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 
 const INTRO_FORCE_KEY = 'qaffeine_intro_force'
 const otpProvider = String(import.meta.env.VITE_OTP_PROVIDER || 'supabase').toLowerCase()
-const otpApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || 'http://localhost:8787').replace(/\/$/, '')
+const otpApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
 
 function normalizedPhone(value) {
   return String(value || '').replace(/[^0-9+]/g, '')

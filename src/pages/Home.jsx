@@ -301,7 +301,7 @@ function normalizeIncomingReview(row, index = 0, defaultSource = 'Guest Review')
 export default function Home() {
   const { user, role, profile, signOut } = useAuth()
   const navigate = useNavigate()
-  const otpApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || 'http://localhost:8787').replace(/\/$/, '')
+  const otpApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [branches, setBranches] = useState([])

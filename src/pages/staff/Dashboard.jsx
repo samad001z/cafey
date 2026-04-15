@@ -70,7 +70,7 @@ function todayIsoDate() {
 
 export default function Dashboard() {
   const { user, profile, signOut } = useAuth()
-  const localApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || 'http://localhost:8787').replace(/\/$/, '')
+  const localApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
 
   const [activeTab, setActiveTab] = useState(tabs.ORDERS)
   const [branchName, setBranchName] = useState('')

@@ -282,7 +282,7 @@ export default function MenuOrder() {
   const { user, profile } = useAuth()
   const [searchParams] = useSearchParams()
   const { tableNumber: routeTableNumber } = useParams()
-  const localApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || 'http://localhost:8787').replace(/\/$/, '')
+  const localApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
   const focusItemName = String(searchParams.get('focus') || '').trim()
   const branchFromQuery = String(searchParams.get('branch') || searchParams.get('branchId') || '').trim()
 

@@ -9,6 +9,16 @@ Use two services:
 
 This split is the safest and simplest way to deploy this project.
 
+## Vercel-Only Option (Frontend + Backend Together)
+
+Now supported.
+
+- Frontend is served by Vercel (Vite build).
+- Backend endpoints are served by Vercel Functions under `api/*`.
+- In production, keep `VITE_OTP_API_BASE_URL` empty so frontend calls same-origin `/api/*`.
+
+Use this option if you want a single platform deployment.
+
 ## 1) Frontend on Vercel
 
 - Root directory: `qaffeine-web`
@@ -28,6 +38,8 @@ Set these environment variables in Vercel:
 - `VITE_DEMO_ADMIN_PASSWORD` (optional)
 - `VITE_DEMO_STAFF_EMPLOYEE_ID` (optional)
 - `VITE_DEMO_STAFF_PASSWORD` (optional)
+
+For Vercel-only deployment, set `VITE_OTP_API_BASE_URL` to empty (or do not define it).
 
 ## 2) API helper on Render
 

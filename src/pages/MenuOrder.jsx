@@ -1164,7 +1164,7 @@ export default function MenuOrder() {
       razorpay.open()
     } catch (error) {
       console.error('Razorpay open failed:', error)
-      toast.error('Unable to initialize Razorpay checkout.')
+      toast.error(error?.message || 'Unable to initialize Razorpay checkout.')
       setPaying(false)
     }
   }

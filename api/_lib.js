@@ -18,6 +18,14 @@ function firstEnv(...keys) {
   return ''
 }
 
+function firstEnvWithSource(...keys) {
+  for (const key of keys) {
+    const value = normalizeEnvValue(process.env[key])
+    if (value) return { value, source: key }
+  }
+  return { value: '', source: '' }
+}
+
 const supabaseUrl = firstEnv('VITE_SUPABASE_URL')
 const serviceRoleKey = firstEnv('SUPABASE_SERVICE_ROLE_KEY')
 const googlePlacesApiKey = firstEnv('GOOGLE_PLACES_API_KEY', 'VITE_GOOGLE_PLACES_API_KEY')
@@ -27,9 +35,48 @@ const accountSid = firstEnv('TWILIO_ACCOUNT_SID')
 const authToken = firstEnv('TWILIO_AUTH_TOKEN')
 const verifyServiceSid = firstEnv('TWILIO_VERIFY_SERVICE_SID')
 
-const razorpayKeyId = firstEnv('RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID')
-const razorpaySecret = firstEnv('RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET')
-const razorpayWebhookSecret = firstEnv('RAZORPAY_WEBHOOK_SECRET') || razorpaySecret
+function inferRazorpayModeFromKeyId(keyId) {
+  if (String(keyId).startsWith('rzp_test_')) return 'test'
+  if (String(keyId).startsWith('rzp_live_')) return 'live'
+  return ''
+}
+
+function resolveRazorpayConfig() {
+  const configuredMode = firstEnv('RAZORPAY_MODE').toLowerCase()
+
+  const keyCandidates = configuredMode === 'test'
+    ? ['RAZORPAY_TEST_KEY_ID', 'RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID']
+    : configuredMode === 'live'
+      ? ['RAZORPAY_LIVE_KEY_ID', 'RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID']
+      : ['RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID', 'RAZORPAY_TEST_KEY_ID', 'RAZORPAY_LIVE_KEY_ID']
+
+  const selectedKey = firstEnvWithSource(...keyCandidates)
+  const inferredMode = inferRazorpayModeFromKeyId(selectedKey.value)
+  const mode = configuredMode || inferredMode
+
+  const secretCandidates = mode === 'test'
+    ? ['RAZORPAY_TEST_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET']
+    : mode === 'live'
+      ? ['RAZORPAY_LIVE_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET']
+      : ['RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET', 'RAZORPAY_TEST_SECRET', 'RAZORPAY_LIVE_SECRET']
+
+  const selectedSecret = firstEnvWithSource(...secretCandidates)
+  const webhookSecret = firstEnv('RAZORPAY_WEBHOOK_SECRET') || selectedSecret.value
+
+  return {
+    mode,
+    keyId: selectedKey.value,
+    keySource: selectedKey.source,
+    secret: selectedSecret.value,
+    secretSource: selectedSecret.source,
+    webhookSecret,
+  }
+}
+
+const razorpayConfig = resolveRazorpayConfig()
+const razorpayKeyId = razorpayConfig.keyId
+const razorpaySecret = razorpayConfig.secret
+const razorpayWebhookSecret = razorpayConfig.webhookSecret
 
 export const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey, {
@@ -83,6 +130,14 @@ function requireRazorpayConfig() {
   if (!razorpayKeyId || !razorpaySecret) {
     throw new Error('Missing RAZORPAY_KEY_ID or RAZORPAY_SECRET in server environment.')
   }
+
+  if (razorpayConfig.mode === 'test' && !razorpayKeyId.startsWith('rzp_test_')) {
+    throw new Error(`RAZORPAY_MODE=test but key from ${razorpayConfig.keySource || 'unknown'} is not a test key.`)
+  }
+
+  if (razorpayConfig.mode === 'live' && !razorpayKeyId.startsWith('rzp_live_')) {
+    throw new Error(`RAZORPAY_MODE=live but key from ${razorpayConfig.keySource || 'unknown'} is not a live key.`)
+  }
 }
 
 function razorpayAuthHeader() {
@@ -115,7 +170,9 @@ export async function createRazorpayOrder({ amountPaise, receipt, notes = {} }) 
   if (!response.ok || !payload?.id) {
     const message = payload?.error?.description || payload?.error?.reason || ''
     if (/authentication failed/i.test(message)) {
-      throw new Error('Razorpay authentication failed. Verify RAZORPAY_KEY_ID and RAZORPAY_SECRET belong to the same account and mode (test/live).')
+      throw new Error(
+        `Razorpay authentication failed. Check ${razorpayConfig.keySource || 'RAZORPAY_KEY_ID'} and ${razorpayConfig.secretSource || 'RAZORPAY_SECRET'} for a matching ${razorpayConfig.mode || 'test/live'} pair.`,
+      )
     }
     throw new Error(message || 'Unable to create Razorpay order')
   }

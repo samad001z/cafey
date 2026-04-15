@@ -373,3 +373,44 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 480px) {
+  .order-details-page {
+    padding: 0.8rem 0 1.3rem;
+  }
+
+  .od-shell {
+    width: min(100%, 96vw);
+    border-radius: 14px;
+    padding: 0.85rem;
+  }
+
+  .od-order-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .od-active-list button {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .od-history table {
+    min-width: 560px;
+  }
+
+  .od-history th,
+  .od-history td {
+    font-size: 0.82rem;
+    padding: 0.5rem 0.4rem;
+  }
+
+  .od-review-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .od-review-actions button {
+    width: 100%;
+  }
+}

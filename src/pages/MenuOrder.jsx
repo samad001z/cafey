@@ -315,6 +315,7 @@ export default function MenuOrder() {
   const videoRef = useRef(null)
   const scannerStreamRef = useRef(null)
   const scannerRafRef = useRef(null)
+  const pendingRecoveryPromptedRef = useRef(false)
 
   const hasReceipt = Boolean(receipt?.orderId && receipt?.paidAt)
 
@@ -563,19 +564,45 @@ export default function MenuOrder() {
   }
 
   const openCheckout = () => {
-    if (!cartItems.length) {
+    const pending = readPendingPaymentReceipt()
+
+    if (!cartItems.length && !hasReceipt && !pending) {
       toast.error('Start adding items to continue.')
       return
     }
 
     const defaultOutlet = selectedOutlet !== 'all' ? selectedOutlet : branches[0]?.id || ''
+
+    if (hasReceipt) {
+      setCheckoutStep(3)
+      setIsCheckoutOpen(true)
+      return
+    }
+
+    if (pending) {
+      const pendingOutlet = pending.branchId && branches.some((branch) => branch.id === pending.branchId)
+        ? pending.branchId
+        : defaultOutlet
+      setCheckoutOutlet(pendingOutlet)
+      setOrderType(pending.orderType || 'table_order')
+      if (pending.tableNumber) {
+        setTableNumber(pending.tableNumber)
+        setManualTableInput(pending.tableNumber)
+      }
+      setCheckoutStep(3)
+      setPaymentSuccess(false)
+      setCreatedOrderId('')
+      setReceipt(null)
+      setIsCheckoutOpen(true)
+      return
+    }
+
     setCheckoutOutlet(defaultOutlet)
     setCheckoutStep(1)
     setPaymentSuccess(false)
     setCreatedOrderId('')
     setReceipt(null)
     sessionStorage.removeItem(LAST_RECEIPT_KEY)
-    sessionStorage.removeItem(PENDING_PAYMENT_KEY)
     setIsCheckoutOpen(true)
   }
 
@@ -636,26 +663,40 @@ export default function MenuOrder() {
     return tableNumber.trim().length > 0
   }
 
-  const persistOrder = async (razorpayOrderId = null) => {
+  const persistOrder = async (razorpayOrderId = null, snapshot = null) => {
+    const sourceBranchId = snapshot?.branchId || checkoutOutlet
+    const sourceOrderType = snapshot?.orderType || orderType
+    const sourceTableNumber = sourceOrderType === 'takeaway'
+      ? null
+      : String(snapshot?.tableNumber || tableNumber.trim() || '').trim() || null
+    const sourceItems = Array.isArray(snapshot?.items) && snapshot.items.length
+      ? snapshot.items
+      : cartItems.map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        unitPrice: Number(item.price || 0),
+      }))
+    const sourceTotal = Number((snapshot?.total ?? grandTotal).toFixed(2))
+
     const orderId = crypto.randomUUID()
 
     const payload = {
       id: orderId,
       customer_id: user?.id ?? null,
-      branch_id: checkoutOutlet,
-      order_type: orderType,
-      table_number: orderType === 'takeaway' ? null : tableNumber.trim() || null,
+      branch_id: sourceBranchId,
+      order_type: sourceOrderType,
+      table_number: sourceTableNumber,
       status: 'placed',
-      total_amount: Number(grandTotal.toFixed(2)),
+      total_amount: sourceTotal,
       payment_status: 'paid',
       razorpay_order_id: razorpayOrderId,
     }
 
-    const rows = cartItems.map((item) => ({
+    const rows = sourceItems.map((item) => ({
       order_id: orderId,
       menu_item_id: isUuid(item.id) ? item.id : null,
       quantity: item.quantity,
-      unit_price: item.price,
+      unit_price: Number(item.unitPrice ?? item.price ?? 0),
     }))
 
     const persistViaLocalApi = async () => {
@@ -698,6 +739,7 @@ export default function MenuOrder() {
 
   const buildBaseReceiptPayload = () => ({
     customerName,
+    branchId: checkoutOutlet,
     outletName: branchNameMap.get(checkoutOutlet) || 'Qaffeine Outlet',
     orderType,
     tableNumber: orderType === 'takeaway' ? null : tableNumber.trim() || null,
@@ -751,7 +793,7 @@ export default function MenuOrder() {
     delete baseReceiptPayload.initiatedAt
 
     try {
-      const recoveredOrderId = await persistOrder(null)
+      const recoveredOrderId = await persistOrder(null, pending)
       const recoveredReceipt = {
         ...baseReceiptPayload,
         orderId: recoveredOrderId,
@@ -765,6 +807,16 @@ export default function MenuOrder() {
       sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(recoveredReceipt))
       sessionStorage.removeItem(PENDING_PAYMENT_KEY)
       setCart({})
+      setRecentOrders((prev) => [
+        {
+          id: recoveredOrderId,
+          status: 'placed',
+          total_amount: Number((pending.total || 0).toFixed(2)),
+          created_at: new Date().toISOString(),
+          branch_id: pending.branchId || checkoutOutlet,
+        },
+        ...prev,
+      ].slice(0, 6))
 
       toast.success('Receipt restored. Staff may verify payment at counter if needed.')
     } catch (error) {
@@ -789,6 +841,31 @@ export default function MenuOrder() {
       setPaying(false)
     }
   }
+
+  useEffect(() => {
+    if (pendingRecoveryPromptedRef.current) return
+    if (hasReceipt) return
+
+    const pending = readPendingPaymentReceipt()
+    if (!pending) return
+
+    const defaultOutlet = selectedOutlet !== 'all' ? selectedOutlet : branches[0]?.id || ''
+    const pendingOutlet = pending.branchId && branches.some((branch) => branch.id === pending.branchId)
+      ? pending.branchId
+      : defaultOutlet
+
+    if (pendingOutlet) setCheckoutOutlet(pendingOutlet)
+    if (pending.orderType) setOrderType(pending.orderType)
+    if (pending.tableNumber) {
+      setTableNumber(String(pending.tableNumber))
+      setManualTableInput(String(pending.tableNumber))
+    }
+
+    setCheckoutStep(3)
+    setIsCheckoutOpen(true)
+    pendingRecoveryPromptedRef.current = true
+    toast('Payment session found. Tap "I already paid" to restore your receipt.')
+  }, [branches, hasReceipt, selectedOutlet])
 
   const handlePayment = async () => {
     setPaying(true)

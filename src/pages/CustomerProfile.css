@@ -236,3 +236,49 @@
     flex-direction: column;
   }
 }
+
+@media (max-width: 480px) {
+  .customer-dashboard-page {
+    padding: 0.8rem 0 1.3rem;
+  }
+
+  .customer-shell {
+    width: min(100%, 96vw);
+    gap: 0.7rem;
+  }
+
+  .customer-head,
+  .panel {
+    border-radius: 14px;
+    padding: 0.75rem;
+  }
+
+  .identity .avatar {
+    width: 42px;
+    height: 42px;
+  }
+
+  .identity h1 {
+    font-size: 1.2rem;
+  }
+
+  .head-actions {
+    width: 100%;
+  }
+
+  .cta {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .account-details p {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .list-row {
+    gap: 0.45rem;
+    padding: 0.5rem;
+  }
+}

@@ -1364,6 +1364,26 @@
 }
 
 @media (max-width: 620px) {
+  .menu-order-page {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .menu-order-shell {
+    width: min(100%, 100vw);
+    padding: 0.75rem 0 1.35rem;
+    gap: 0.75rem;
+  }
+
+  .mo-left-sidebar,
+  .mo-main-content {
+    border-radius: 14px;
+  }
+
+  .mo-main-content,
+  .mo-left-sidebar {
+    padding: 0.8rem;
+  }
+
   .mo-item-card {
     grid-template-columns: 1fr;
   }
@@ -1385,6 +1405,139 @@
 
   .mo-item-right {
     justify-items: start;
+  }
+
+  .mo-step-actions {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  .mo-step-actions button {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .mo-step-actions.receipt-actions .next,
+  .mo-step-actions.receipt-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .gate-page {
+    padding: 0.8rem;
+  }
+
+  .qr-gate-shell {
+    width: 100%;
+  }
+
+  .qr-gate-card,
+  .mo-modal {
+    border-radius: 14px;
+    padding: 0.8rem;
+  }
+
+  .mo-toolbar {
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .mo-search,
+  .mo-outlet-picker {
+    min-height: 42px;
+    padding: 0 0.6rem;
+    font-size: 0.92rem;
+  }
+
+  .mo-left-sidebar button {
+    min-height: 42px;
+    font-size: 0.9rem;
+  }
+
+  .mo-category-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .mo-item-headline h4 {
+    font-size: 0.98rem;
+  }
+
+  .mo-item-meta {
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+  }
+
+  .mo-modal-backdrop {
+    padding: 0.55rem;
+  }
+
+  .mo-close {
+    right: 0.55rem;
+    top: 0.55rem;
+  }
+
+  .mo-step-head .dot {
+    min-height: 40px;
+    padding: 0 0.55rem;
+  }
+
+  .mo-step-head .dot p {
+    font-size: 0.82rem;
+  }
+
+  .mo-review-list div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .mo-receipt-lines {
+    overflow-x: auto;
+  }
+
+  .mo-receipt-line-head,
+  .mo-receipt-line-row {
+    min-width: 348px;
+  }
+
+  .mo-mobile-cartbar {
+    left: 0.55rem;
+    right: 0.55rem;
+    border-radius: 14px;
+    padding: 0 0.65rem;
+    gap: 0.4rem;
+  }
+
+  .mo-mobile-cartbar span {
+    font-size: 0.88rem;
+  }
+
+  .mo-mobile-cartbar strong {
+    font-size: 0.94rem;
+  }
+
+  .mo-mobile-cartbar em {
+    min-height: 32px;
+    padding: 0 0.6rem;
+    font-size: 0.84rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .mo-mobile-cartbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .mo-mobile-cartbar em {
+    display: none;
+  }
+
+  .mo-step-actions button {
+    flex-basis: 100%;
   }
 }
 

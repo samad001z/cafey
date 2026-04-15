@@ -1,18 +1,35 @@
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const googlePlacesApiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_PLACES_API_KEY || ''
-const defaultPlaceId = process.env.GOOGLE_PLACE_ID || process.env.VITE_GOOGLE_PLACE_ID || ''
+function normalizeEnvValue(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+    return text.slice(1, -1).trim()
+  }
+  return text
+}
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID
-const authToken = process.env.TWILIO_AUTH_TOKEN
-const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID
+function firstEnv(...keys) {
+  for (const key of keys) {
+    const value = normalizeEnvValue(process.env[key])
+    if (value) return value
+  }
+  return ''
+}
 
-const razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || ''
-const razorpaySecret = process.env.RAZORPAY_SECRET || ''
-const razorpayWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || razorpaySecret
+const supabaseUrl = firstEnv('VITE_SUPABASE_URL')
+const serviceRoleKey = firstEnv('SUPABASE_SERVICE_ROLE_KEY')
+const googlePlacesApiKey = firstEnv('GOOGLE_PLACES_API_KEY', 'VITE_GOOGLE_PLACES_API_KEY')
+const defaultPlaceId = firstEnv('GOOGLE_PLACE_ID', 'VITE_GOOGLE_PLACE_ID')
+
+const accountSid = firstEnv('TWILIO_ACCOUNT_SID')
+const authToken = firstEnv('TWILIO_AUTH_TOKEN')
+const verifyServiceSid = firstEnv('TWILIO_VERIFY_SERVICE_SID')
+
+const razorpayKeyId = firstEnv('RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID')
+const razorpaySecret = firstEnv('RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET')
+const razorpayWebhookSecret = firstEnv('RAZORPAY_WEBHOOK_SECRET') || razorpaySecret
 
 export const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey, {
@@ -96,7 +113,11 @@ export async function createRazorpayOrder({ amountPaise, receipt, notes = {} }) 
 
   const payload = await response.json().catch(() => ({}))
   if (!response.ok || !payload?.id) {
-    throw new Error(payload?.error?.description || payload?.error?.reason || 'Unable to create Razorpay order')
+    const message = payload?.error?.description || payload?.error?.reason || ''
+    if (/authentication failed/i.test(message)) {
+      throw new Error('Razorpay authentication failed. Verify RAZORPAY_KEY_ID and RAZORPAY_SECRET belong to the same account and mode (test/live).')
+    }
+    throw new Error(message || 'Unable to create Razorpay order')
   }
 
   return payload

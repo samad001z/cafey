@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { buildApiUrl } from '../lib/apiBase'
 import { useAuth } from '../context/AuthContext'
 
 const defaultCategories = [
@@ -301,7 +302,7 @@ function normalizeIncomingReview(row, index = 0, defaultSource = 'Guest Review')
 export default function Home() {
   const { user, role, profile, signOut } = useAuth()
   const navigate = useNavigate()
-  const otpApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
+  const buildUrl = (path) => buildApiUrl(path, import.meta.env.VITE_OTP_API_BASE_URL)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [branches, setBranches] = useState([])
@@ -413,7 +414,7 @@ export default function Home() {
 
     const loadGoogleReviews = async () => {
       try {
-        const reviewResponse = await fetch(`${otpApiBase}/api/reviews/public?limit=12`)
+        const reviewResponse = await fetch(buildUrl('/api/reviews/public?limit=12'))
         if (reviewResponse.ok) {
           const reviewPayload = await reviewResponse.json().catch(() => ({}))
           const appReviews = (reviewPayload?.reviews || [])
@@ -433,7 +434,7 @@ export default function Home() {
       if (!placeId) return
 
       try {
-        const response = await fetch(`${otpApiBase}/api/google/reviews?placeId=${encodeURIComponent(placeId)}`)
+        const response = await fetch(buildUrl(`/api/google/reviews?placeId=${encodeURIComponent(placeId)}`))
 
         if (!response.ok) return
         const payload = await response.json()

@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { LoaderCircle, Phone } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
+import { buildApiUrl, resolveApiBase } from '../../lib/apiBase'
 import { useAuth } from '../../context/AuthContext'
 
 const INTRO_FORCE_KEY = 'qaffeine_intro_force'
 const RESEND_COOLDOWN_SECONDS = 30
 const otpProvider = String(import.meta.env.VITE_OTP_PROVIDER || 'supabase').toLowerCase()
-const otpApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
+const otpApiBase = resolveApiBase(import.meta.env.VITE_OTP_API_BASE_URL)
+const buildOtpApiUrl = (path) => buildApiUrl(path, import.meta.env.VITE_OTP_API_BASE_URL)
 
 function normalizedPhone(value) {
   return String(value || '').replace(/[^0-9+]/g, '')
@@ -174,7 +176,7 @@ export default function CustomerLogin() {
   }
 
   const sendTwilioOtp = async (cleanPhone) => {
-    const response = await fetch(`${otpApiBase}/api/otp/send`, {
+    const response = await fetch(buildOtpApiUrl('/api/otp/send'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: cleanPhone }),
@@ -187,7 +189,7 @@ export default function CustomerLogin() {
   }
 
   const verifyTwilioOtp = async (cleanPhone, code) => {
-    const response = await fetch(`${otpApiBase}/api/otp/verify`, {
+    const response = await fetch(buildOtpApiUrl('/api/otp/verify'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: cleanPhone, code }),

@@ -4,6 +4,7 @@ import { Camera, QrCode, ScanLine, Search, ShoppingBag, Star, Store, X } from 'l
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
+import { resolveApiBase } from '../lib/apiBase'
 import { useAuth } from '../context/AuthContext'
 import './MenuOrder.css'
 
@@ -392,19 +393,6 @@ function parseTableQrPayload(rawValue) {
   }
 
   return { table: raw, branchId: '' }
-}
-
-function resolveApiBase(rawBase) {
-  const value = String(rawBase || '').trim()
-  if (!value) return import.meta.env.DEV ? 'http://localhost:8787' : ''
-
-  if (/^https?:\/\//i.test(value)) return value.replace(/\/$/, '')
-  if (value.startsWith('//')) return `${window.location.protocol}${value}`.replace(/\/$/, '')
-  if (value.startsWith(':')) return `${window.location.protocol}//localhost${value}`.replace(/\/$/, '')
-  if (value.startsWith('/')) return value.replace(/\/$/, '')
-  if (/^[a-z0-9.-]+:\d+$/i.test(value)) return `${window.location.protocol}//${value}`.replace(/\/$/, '')
-
-  return value.replace(/\/$/, '')
 }
 
 export default function MenuOrder() {

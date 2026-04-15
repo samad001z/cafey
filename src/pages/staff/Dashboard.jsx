@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bell, Clock3, ClipboardList, LogIn, LogOut, Minus, Plus, ReceiptText, Search, ShoppingBag, Timer, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
+import { buildApiUrl, resolveApiBase } from '../../lib/apiBase'
 import { useAuth } from '../../context/AuthContext'
 import './Dashboard.css'
 
@@ -138,7 +139,8 @@ function isWithinLiveOrderWindow(createdAt) {
 
 export default function Dashboard() {
   const { user, profile, signOut } = useAuth()
-  const localApiBase = String(import.meta.env.VITE_OTP_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:8787' : '')).replace(/\/$/, '')
+  const localApiBase = resolveApiBase(import.meta.env.VITE_OTP_API_BASE_URL)
+  const buildLocalApiUrl = (path) => buildApiUrl(path, import.meta.env.VITE_OTP_API_BASE_URL)
 
   const [activeTab, setActiveTab] = useState(tabs.ORDERS)
   const [branchName, setBranchName] = useState('')
@@ -259,7 +261,7 @@ export default function Dashboard() {
 
       if (error || !supabaseRows.length) {
         try {
-          const response = await fetch(`${localApiBase}/api/staff/menu?branchId=${encodeURIComponent(profile.branch_id)}`)
+          const response = await fetch(buildLocalApiUrl(`/api/staff/menu?branchId=${encodeURIComponent(profile.branch_id)}`))
           const payload = await response.json().catch(() => ({}))
           if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || 'Unable to fetch counter menu')
           const rows = payload.menu || []

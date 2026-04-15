@@ -39,6 +39,11 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
 const baseUrl = (process.env.QR_BASE_URL || process.env.VITE_APP_URL || 'http://localhost:5173').replace(/\/$/, '')
 const maxTables = Math.max(1, Math.min(80, Number(process.env.QR_TABLE_COUNT || 20)))
+const branchLimit = Number(process.env.QR_BRANCH_LIMIT || 0)
+const branchIdsFilter = String(process.env.QR_BRANCH_IDS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
 
 const outputDir = path.resolve(process.cwd(), 'generated')
 const outputFile = path.join(outputDir, 'table-qrs.html')
@@ -66,6 +71,21 @@ async function getBranches() {
   }
 
   return data
+}
+
+function filterBranches(branches) {
+  let rows = Array.isArray(branches) ? branches : []
+
+  if (branchIdsFilter.length) {
+    const allowed = new Set(branchIdsFilter)
+    rows = rows.filter((row) => allowed.has(row.id))
+  }
+
+  if (Number.isFinite(branchLimit) && branchLimit > 0) {
+    rows = rows.slice(0, branchLimit)
+  }
+
+  return rows
 }
 
 function buildBranchSection(branch) {
@@ -96,7 +116,7 @@ function buildBranchSection(branch) {
 }
 
 async function main() {
-  const branches = await getBranches()
+  const branches = filterBranches(await getBranches())
   const sections = branches.map(buildBranchSection).join('\n')
 
   const html = `<!doctype html>

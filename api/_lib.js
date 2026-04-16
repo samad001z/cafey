@@ -41,24 +41,41 @@ function inferRazorpayModeFromKeyId(keyId) {
   return ''
 }
 
+function isProductionRuntime() {
+  return process.env.NODE_ENV === 'production' || String(process.env.VERCEL || '') === '1' || !!process.env.VERCEL_ENV
+}
+
 function resolveRazorpayConfig() {
   const configuredMode = firstEnv('RAZORPAY_MODE').toLowerCase()
+  const allowViteFallback = !isProductionRuntime()
 
   const keyCandidates = configuredMode === 'test'
-    ? ['RAZORPAY_TEST_KEY_ID', 'RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID']
+    ? allowViteFallback
+      ? ['RAZORPAY_TEST_KEY_ID', 'RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID']
+      : ['RAZORPAY_TEST_KEY_ID', 'RAZORPAY_KEY_ID']
     : configuredMode === 'live'
-      ? ['RAZORPAY_LIVE_KEY_ID', 'RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID']
-      : ['RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID', 'RAZORPAY_TEST_KEY_ID', 'RAZORPAY_LIVE_KEY_ID']
+      ? allowViteFallback
+        ? ['RAZORPAY_LIVE_KEY_ID', 'RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID']
+        : ['RAZORPAY_LIVE_KEY_ID', 'RAZORPAY_KEY_ID']
+      : allowViteFallback
+        ? ['RAZORPAY_KEY_ID', 'VITE_RAZORPAY_KEY_ID', 'RAZORPAY_TEST_KEY_ID', 'RAZORPAY_LIVE_KEY_ID']
+        : ['RAZORPAY_KEY_ID', 'RAZORPAY_TEST_KEY_ID', 'RAZORPAY_LIVE_KEY_ID']
 
   const selectedKey = firstEnvWithSource(...keyCandidates)
   const inferredMode = inferRazorpayModeFromKeyId(selectedKey.value)
   const mode = configuredMode || inferredMode
 
   const secretCandidates = mode === 'test'
-    ? ['RAZORPAY_TEST_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET']
+    ? allowViteFallback
+      ? ['RAZORPAY_TEST_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET']
+      : ['RAZORPAY_TEST_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET']
     : mode === 'live'
-      ? ['RAZORPAY_LIVE_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET']
-      : ['RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET', 'RAZORPAY_TEST_SECRET', 'RAZORPAY_LIVE_SECRET']
+      ? allowViteFallback
+        ? ['RAZORPAY_LIVE_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET']
+        : ['RAZORPAY_LIVE_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET']
+      : allowViteFallback
+        ? ['RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'VITE_RAZORPAY_SECRET', 'RAZORPAY_TEST_SECRET', 'RAZORPAY_LIVE_SECRET']
+        : ['RAZORPAY_SECRET', 'RAZORPAY_KEY_SECRET', 'RAZORPAY_TEST_SECRET', 'RAZORPAY_LIVE_SECRET']
 
   const selectedSecret = firstEnvWithSource(...secretCandidates)
   const webhookSecret = firstEnv('RAZORPAY_WEBHOOK_SECRET') || selectedSecret.value
@@ -129,6 +146,10 @@ export function requireSupabaseAdmin() {
 function requireRazorpayConfig() {
   if (!razorpayKeyId || !razorpaySecret) {
     throw new Error('Missing RAZORPAY_KEY_ID or RAZORPAY_SECRET in server environment.')
+  }
+
+  if (isProductionRuntime() && /^VITE_/i.test(razorpayConfig.keySource || '')) {
+    throw new Error('Production Razorpay key must come from server env (RAZORPAY_KEY_ID or RAZORPAY_TEST_KEY_ID), not VITE_* vars.')
   }
 
   if (razorpayConfig.mode === 'test' && !razorpayKeyId.startsWith('rzp_test_')) {

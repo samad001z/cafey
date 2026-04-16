@@ -37,6 +37,11 @@ Set these environment variables in Vercel:
 - `RAZORPAY_KEY_ID`
 - `RAZORPAY_SECRET`
 - `RAZORPAY_WEBHOOK_SECRET`
+
+Razorpay on Vercel notes:
+- Set `RAZORPAY_MODE=test` for test rollout.
+- Set server envs: `RAZORPAY_TEST_KEY_ID` and `RAZORPAY_TEST_SECRET` (or `RAZORPAY_KEY_ID` + `RAZORPAY_SECRET`).
+- Do not rely on `VITE_*` vars for backend auth in production.
 - `VITE_DEMO_ADMIN_EMAIL` (optional)
 - `VITE_DEMO_ADMIN_PASSWORD` (optional)
 - `VITE_DEMO_STAFF_EMPLOYEE_ID` (optional)

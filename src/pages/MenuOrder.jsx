@@ -451,7 +451,7 @@ export default function MenuOrder() {
   const [checkoutOutlet, setCheckoutOutlet] = useState('')
   const [tableNumber, setTableNumber] = useState(searchParams.get('table') || routeTableNumber || '')
   const [paying, setPaying] = useState(false)
-  const [paymentSuccess, setPaymentSuccess] = useState(false)
+  const [paymentCompleted, setPaymentCompleted] = useState(false)
   const [createdOrderId, setCreatedOrderId] = useState('')
   const [receipt, setReceipt] = useState(null)
   const [manualTableInput, setManualTableInput] = useState('')
@@ -498,7 +498,7 @@ export default function MenuOrder() {
 
       setReceipt(parsed)
       setCreatedOrderId(parsed.orderId)
-      setPaymentSuccess(true)
+      setPaymentCompleted(true)
     } catch {
       // Ignore invalid cached receipt payloads.
     }
@@ -881,7 +881,7 @@ export default function MenuOrder() {
 
     if (hasReceipt && hasNewCartItems) {
       // Starting a fresh order should not reopen an old cached receipt.
-      setPaymentSuccess(false)
+      setPaymentCompleted(false)
       setCreatedOrderId('')
       setReceipt(null)
       sessionStorage.removeItem(LAST_RECEIPT_KEY)
@@ -904,7 +904,7 @@ export default function MenuOrder() {
         setManualTableInput(pending.tableNumber)
       }
       setCheckoutStep(3)
-      setPaymentSuccess(false)
+      setPaymentCompleted(false)
       setCreatedOrderId('')
       setReceipt(null)
       setIsCheckoutOpen(true)
@@ -913,7 +913,7 @@ export default function MenuOrder() {
 
     setCheckoutOutlet(defaultOutlet)
     setCheckoutStep(1)
-    setPaymentSuccess(false)
+    setPaymentCompleted(false)
     setCreatedOrderId('')
     setReceipt(null)
     sessionStorage.removeItem(LAST_RECEIPT_KEY)
@@ -1010,7 +1010,7 @@ export default function MenuOrder() {
 
     setReceipt(receiptPayload)
     setCreatedOrderId(orderId)
-    setPaymentSuccess(true)
+    setPaymentCompleted(true)
     revealReceiptInCheckout()
     paymentHandledRef.current = true
     sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receiptPayload))
@@ -1076,12 +1076,11 @@ export default function MenuOrder() {
       }
 
       if (!payload?.verified || !payload?.orderId) {
-        if (!silent) toast('Payment is processing. Receipt will appear after confirmation.')
+        if (!silent) toast.error('Payment is processing. Please wait and retry receipt in a few seconds.')
         return
       }
 
       finalizeReceiptFromPending(pending, payload.orderId)
-      toast.success('Payment verified. Receipt generated.')
     } catch (error) {
       console.error('Receipt recovery failed:', error)
       if (!silent) toast.error(error.message || 'Unable to recover payment receipt right now')
@@ -1121,6 +1120,7 @@ export default function MenuOrder() {
 
   const handlePayment = async () => {
     setPaying(true)
+    setPaymentCompleted(false)
     paymentHandledRef.current = false
 
     const loaded = await loadRazorpayScript()
@@ -1198,7 +1198,6 @@ export default function MenuOrder() {
             }
 
             finalizeReceiptFromPending(pendingSnapshot, verifyPayload.orderId)
-            toast.success('Payment verified. Receipt ready below.')
           } catch (error) {
             console.error('Payment verify/create failed:', error)
             toast.error(error.message || 'Payment verification failed')
@@ -1210,7 +1209,6 @@ export default function MenuOrder() {
           ondismiss: () => {
             setPaying(false)
             if (!paymentHandledRef.current && readPendingPaymentReceipt()) {
-              toast('Checking payment confirmation...')
               recoverReceiptAfterPayment({ silent: true })
             }
           },
@@ -1881,7 +1879,7 @@ export default function MenuOrder() {
 
               {checkoutStep === 3 ? (
                 <div className="mo-step-content">
-                  {!paymentSuccess && !hasReceipt ? (
+                  {!paymentCompleted && !hasReceipt ? (
                     <>
                       <h3>Pay with Razorpay</h3>
                       <p className="muted">Secure checkout for your order total of ₹{grandTotal.toFixed(2)}.</p>

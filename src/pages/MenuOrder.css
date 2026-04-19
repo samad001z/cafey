@@ -497,6 +497,7 @@
   grid-template-columns: minmax(0, 1fr) 112px;
   gap: 0.8rem;
   align-items: center;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .mo-item-card.is-86ed {
@@ -611,6 +612,11 @@
   color: #c8853a;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 140ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.mo-item-right > button:active {
+  transform: scale(0.96);
 }
 
 .mo-stepper {
@@ -879,6 +885,7 @@
   position: relative;
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
+  backdrop-filter: blur(10px);
 }
 
 .mo-mod-backdrop {
@@ -1108,12 +1115,17 @@
   min-width: 104px;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 140ms ease, box-shadow 180ms ease, background-color 180ms ease;
 }
 
 .mo-step-actions .next {
   background: #c8853a;
   color: #1c1108;
   border-color: #c8853a;
+}
+
+.mo-step-actions button:active {
+  transform: scale(0.97);
 }
 
 .mo-step-actions button:disabled {
@@ -1772,6 +1784,29 @@
     padding: 0.8rem;
   }
 
+  .mo-item-card:active {
+    transform: scale(0.992);
+    border-color: rgba(200, 133, 58, 0.42);
+  }
+
+  .mo-step-head {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 0.2rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mo-step-head .dot {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .mo-step-head::-webkit-scrollbar {
+    display: none;
+  }
+
   .mo-item-card {
     grid-template-columns: 1fr;
   }
@@ -1873,6 +1908,9 @@
 
   .mo-modal {
     max-height: calc(100dvh - 1.1rem);
+    border-radius: 16px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
   }
 
   .mo-close {

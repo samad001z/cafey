@@ -2063,19 +2063,19 @@
 
 /* 2026 SaaS visual uplift */
 .menu-order-page {
-  --mo-bg-0: #070b1b;
-  --mo-bg-1: #121834;
-  --mo-bg-2: #1b2450;
-  --mo-panel: rgba(16, 23, 48, 0.78);
-  --mo-panel-strong: rgba(18, 26, 55, 0.92);
-  --mo-border: rgba(144, 182, 255, 0.3);
-  --mo-accent: #8ba7ff;
-  --mo-accent-2: #6de3c8;
-  --mo-text: #f4f7ff;
-  --mo-muted: #bdcaee;
+  --mo-bg-0: #0d0704;
+  --mo-bg-1: #1a1008;
+  --mo-bg-2: #28170d;
+  --mo-panel: rgba(28, 17, 9, 0.82);
+  --mo-panel-strong: rgba(31, 18, 9, 0.94);
+  --mo-border: rgba(200, 133, 58, 0.3);
+  --mo-accent: #c8853a;
+  --mo-accent-2: #e2b06f;
+  --mo-text: #f5edd6;
+  --mo-muted: #c6ad92;
   background:
-    radial-gradient(1000px 580px at 10% 0%, rgba(143, 170, 255, 0.19), transparent 55%),
-    radial-gradient(760px 460px at 100% 8%, rgba(109, 227, 200, 0.17), transparent 60%),
+    radial-gradient(1000px 580px at 10% 0%, rgba(200, 133, 58, 0.2), transparent 55%),
+    radial-gradient(760px 460px at 100% 8%, rgba(174, 111, 52, 0.16), transparent 60%),
     linear-gradient(165deg, var(--mo-bg-0), var(--mo-bg-1) 45%, var(--mo-bg-2));
   color: var(--mo-text);
 }
@@ -2113,8 +2113,8 @@
 .mo-step-head .dot,
 .mo-receipt-lines,
 .mo-receipt-fallback {
-  border-color: rgba(156, 191, 255, 0.27);
-  background: rgba(12, 18, 39, 0.68);
+  border-color: rgba(200, 133, 58, 0.3);
+  background: rgba(21, 13, 8, 0.72);
 }
 
 .mo-item-card {
@@ -2123,7 +2123,7 @@
 
 .mo-item-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(139, 167, 255, 0.62);
+  border-color: rgba(200, 133, 58, 0.62);
   box-shadow: 0 12px 28px rgba(3, 8, 26, 0.34);
 }
 
@@ -2141,8 +2141,8 @@
 .mo-step-content input,
 .mo-qr-modal input,
 .mo-mobile-category-picker select {
-  background: rgba(11, 16, 35, 0.72);
-  border-color: rgba(148, 183, 255, 0.34);
+  background: rgba(22, 13, 8, 0.74);
+  border-color: rgba(200, 133, 58, 0.36);
   color: var(--mo-text);
 }
 
@@ -2154,7 +2154,7 @@
 .mo-qr-modal input:focus,
 .mo-mobile-category-picker select:focus {
   border-color: var(--mo-accent);
-  box-shadow: 0 0 0 3px rgba(139, 167, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(200, 133, 58, 0.22);
 }
 
 .mo-item-right > button,
@@ -2165,10 +2165,10 @@
 .mo-mod-sheet footer .next,
 .mo-receipt-fallback .next {
   border: 1px solid transparent;
-  background: linear-gradient(135deg, var(--mo-accent), #7d95ff 55%, #6fbfff);
-  color: #031030;
+  background: linear-gradient(135deg, var(--mo-accent), #b9702e 55%, var(--mo-accent-2));
+  color: #1d1208;
   font-weight: 800;
-  box-shadow: 0 12px 24px rgba(84, 121, 232, 0.34);
+  box-shadow: 0 12px 24px rgba(145, 89, 35, 0.34);
 }
 
 .mo-step-actions button:not(.next),
@@ -2177,8 +2177,8 @@
 .mo-qr-modal header button,
 .mo-left-sidebar button,
 .mo-type-toggle button {
-  background: rgba(18, 25, 53, 0.78);
-  border-color: rgba(153, 187, 255, 0.34);
+  background: rgba(31, 18, 9, 0.82);
+  border-color: rgba(200, 133, 58, 0.34);
   color: var(--mo-text);
 }
 
@@ -2186,41 +2186,41 @@
 .mo-type-toggle button.active,
 .mo-mod-options button.active {
   border-color: var(--mo-accent);
-  background: linear-gradient(135deg, rgba(139, 167, 255, 0.29), rgba(109, 227, 200, 0.16));
+  background: linear-gradient(135deg, rgba(200, 133, 58, 0.27), rgba(226, 176, 111, 0.16));
   color: #f7fbff;
 }
 
 .mo-step-head .dot.active span {
   background: linear-gradient(135deg, var(--mo-accent), var(--mo-accent-2));
-  color: #042036;
+  color: #241307;
 }
 
 .mo-success {
-  border-color: rgba(138, 168, 255, 0.46);
+  border-color: rgba(200, 133, 58, 0.46);
   background:
-    radial-gradient(circle at 8% 0%, rgba(139, 167, 255, 0.3), transparent 35%),
-    radial-gradient(circle at 92% 100%, rgba(109, 227, 200, 0.24), transparent 40%),
-    linear-gradient(170deg, rgba(15, 23, 49, 0.94) 0%, rgba(10, 17, 38, 0.95) 100%);
+    radial-gradient(circle at 8% 0%, rgba(200, 133, 58, 0.3), transparent 35%),
+    radial-gradient(circle at 92% 100%, rgba(226, 176, 111, 0.22), transparent 40%),
+    linear-gradient(170deg, rgba(26, 16, 10, 0.94) 0%, rgba(16, 10, 7, 0.95) 100%);
 }
 
 .mo-receipt-card {
-  border-color: rgba(149, 179, 248, 0.45);
+  border-color: rgba(167, 128, 86, 0.45);
   background:
-    linear-gradient(180deg, rgba(245, 250, 255, 0.96), rgba(236, 244, 255, 0.94)),
-    repeating-linear-gradient(180deg, rgba(88, 117, 168, 0.08) 0 2px, transparent 2px 28px);
+    linear-gradient(180deg, rgba(255, 248, 238, 0.96), rgba(250, 239, 224, 0.94)),
+    repeating-linear-gradient(180deg, rgba(120, 83, 46, 0.08) 0 2px, transparent 2px 28px);
   box-shadow: 0 18px 34px rgba(6, 10, 24, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .mo-recent-list .status,
 .mo-86-badge {
-  border-color: rgba(130, 227, 201, 0.38);
-  color: #8de8d0;
-  background: rgba(87, 201, 173, 0.14);
+  border-color: rgba(214, 145, 69, 0.38);
+  color: #ffd9ac;
+  background: rgba(214, 145, 69, 0.16);
 }
 
 .mo-mobile-cartbar {
-  border-color: rgba(149, 182, 255, 0.8);
-  background: linear-gradient(130deg, rgba(139, 167, 255, 0.97), rgba(109, 227, 200, 0.97));
+  border-color: rgba(209, 146, 75, 0.8);
+  background: linear-gradient(130deg, rgba(200, 133, 58, 0.97), rgba(226, 176, 111, 0.97));
   box-shadow: 0 18px 34px rgba(5, 9, 26, 0.48);
 }
 
@@ -2239,7 +2239,7 @@
 .menu-order-page input:focus-visible,
 .menu-order-page select:focus-visible,
 .menu-order-page a:focus-visible {
-  outline: 2px solid rgba(131, 230, 205, 0.95);
+  outline: 2px solid rgba(226, 176, 111, 0.95);
   outline-offset: 2px;
 }
 

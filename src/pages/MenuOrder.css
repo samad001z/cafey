@@ -1740,6 +1740,17 @@
   }
 }
 
+@media (hover: none) and (pointer: coarse) {
+  .mo-left-sidebar ul {
+    display: none;
+  }
+
+  .mo-mobile-category-picker {
+    display: grid;
+    gap: 0.35rem;
+  }
+}
+
 @media (max-width: 620px) {
   .menu-order-page {
     padding-bottom: calc(96px + env(safe-area-inset-bottom));

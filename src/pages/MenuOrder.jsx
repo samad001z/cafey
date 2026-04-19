@@ -395,6 +395,38 @@ function parseTableQrPayload(rawValue) {
   return { table: raw, branchId: '' }
 }
 
+function normalizeReceiptPayload(raw, fallback = {}) {
+  if (!raw || typeof raw !== 'object') return null
+
+  const merged = { ...fallback, ...raw }
+  const orderId = String(merged.orderId || '').trim()
+  const paidAtRaw = String(merged.paidAt || '').trim()
+  const paidAt = paidAtRaw || new Date().toISOString()
+  const items = Array.isArray(merged.items)
+    ? merged.items.map((item, index) => ({
+      id: String(item?.id || `item-${index + 1}`),
+      name: String(item?.name || 'Item'),
+      quantity: Math.max(1, Number(item?.quantity || 1)),
+      unitPrice: Number(item?.unitPrice || item?.price || 0),
+      modifierSummary: String(item?.modifierSummary || ''),
+    }))
+    : []
+
+  return {
+    ...merged,
+    orderId,
+    paidAt,
+    items,
+    subtotal: Number(merged.subtotal || 0),
+    gstAmount: Number(merged.gstAmount || 0),
+    packaging: Number(merged.packaging || 0),
+    total: Number(merged.total || 0),
+    outletName: String(merged.outletName || 'Qaffeine Outlet'),
+    customerName: String(merged.customerName || 'Customer'),
+    orderType: String(merged.orderType || 'table_order'),
+  }
+}
+
 export default function MenuOrder() {
   const { user, profile } = useAuth()
   const [searchParams] = useSearchParams()
@@ -445,11 +477,20 @@ export default function MenuOrder() {
     if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const revealReceiptInCheckout = () => {
+    setCheckoutStep(3)
+    setIsCheckoutOpen(true)
+    setTimeout(() => {
+      const node = document.querySelector('.mo-receipt-card, .mo-receipt-fallback')
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 120)
+  }
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(LAST_RECEIPT_KEY)
       if (!raw) return
-      const parsed = JSON.parse(raw)
+      const parsed = normalizeReceiptPayload(JSON.parse(raw))
       if (!parsed?.orderId || !parsed?.paidAt) return
 
       const ageMs = Date.now() - new Date(parsed.paidAt).getTime()
@@ -957,18 +998,20 @@ export default function MenuOrder() {
   })
 
   const finalizeReceiptFromPending = (pending, orderId) => {
-    const receiptPayload = {
+    const rawReceiptPayload = {
       ...pending,
       paidAt: new Date().toISOString(),
       orderId,
       syncStatus: 'synced',
     }
-    delete receiptPayload.initiatedAt
+    delete rawReceiptPayload.initiatedAt
+    const receiptPayload = normalizeReceiptPayload(rawReceiptPayload)
+    if (!receiptPayload) return
 
     setReceipt(receiptPayload)
     setCreatedOrderId(orderId)
     setPaymentSuccess(true)
-    setCheckoutStep(3)
+    revealReceiptInCheckout()
     paymentHandledRef.current = true
     sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receiptPayload))
     sessionStorage.removeItem(PENDING_PAYMENT_KEY)
@@ -1155,7 +1198,7 @@ export default function MenuOrder() {
             }
 
             finalizeReceiptFromPending(pendingSnapshot, verifyPayload.orderId)
-            toast.success('Order placed successfully!')
+            toast.success('Payment verified. Receipt ready below.')
           } catch (error) {
             console.error('Payment verify/create failed:', error)
             toast.error(error.message || 'Payment verification failed')

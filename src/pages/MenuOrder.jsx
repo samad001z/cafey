@@ -440,6 +440,11 @@ export default function MenuOrder() {
 
   const hasReceipt = Boolean(receipt?.orderId && receipt?.paidAt)
 
+  const scrollToCategorySection = (category) => {
+    const section = document.getElementById(`cat-${category}`)
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(LAST_RECEIPT_KEY)
@@ -1360,6 +1365,24 @@ export default function MenuOrder() {
       <div className="menu-order-shell">
         <aside className="mo-left-sidebar">
           <h2>Categories</h2>
+          <label className="mo-mobile-category-picker">
+            <span>Jump to category</span>
+            <select
+              aria-label="Jump to category"
+              value={activeCategory}
+              onChange={(event) => {
+                const category = event.target.value
+                setActiveCategory(category)
+                scrollToCategorySection(category)
+              }}
+            >
+              {categoryCounts.map(([category, count]) => (
+                <option key={category} value={category}>
+                  {category} ({count})
+                </option>
+              ))}
+            </select>
+          </label>
           <ul>
             {categoryCounts.map(([category, count]) => (
               <li key={category}>
@@ -1368,8 +1391,7 @@ export default function MenuOrder() {
                   className={activeCategory === category ? 'active' : ''}
                   onClick={() => {
                     setActiveCategory(category)
-                    const section = document.getElementById(`cat-${category}`)
-                    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    scrollToCategorySection(category)
                   }}
                 >
                   <span>{category}</span>
@@ -1919,7 +1941,13 @@ export default function MenuOrder() {
                           </footer>
                         </article>
                       ) : (
-                        <strong>Order ID: {createdOrderId}</strong>
+                        <div className="mo-receipt-fallback">
+                          <strong>Order ID: {createdOrderId || 'Generating...'}</strong>
+                          <p>Payment was successful. Tap below to fetch full receipt details.</p>
+                          <button type="button" className="next" onClick={() => recoverReceiptAfterPayment()}>
+                            Generate Receipt
+                          </button>
+                        </div>
                       )}
 
                       <div className="mo-step-actions receipt-actions">

@@ -203,7 +203,7 @@ function generateReviewInsights(reviews = []) {
 }
 
 export default function Dashboard() {
-  const { profile, signOut } = useAuth()
+  const { signOut } = useAuth()
 
   const [activePage, setActivePage] = useState('monitor')
   const [branches, setBranches] = useState([])
@@ -266,6 +266,10 @@ export default function Dashboard() {
     return map
   }, [branches])
 
+  const selectedOutletLabel = selectedOutlet === 'all'
+    ? 'All Outlets'
+    : (branchNameById.get(selectedOutlet) || 'Selected Outlet')
+
   const scopedBranches = useMemo(() => {
     if (selectedOutlet === 'all') return branches
     return branches.filter((branch) => branch.id === selectedOutlet)
@@ -282,6 +286,21 @@ export default function Dashboard() {
   }, [menuCategory, menuItems])
 
   const reviewInsights = useMemo(() => generateReviewInsights(reviewRows), [reviewRows])
+  const branchFilterOptions = useMemo(
+    () => (selectedOutlet === 'all' ? branches : scopedBranches),
+    [selectedOutlet, branches, scopedBranches],
+  )
+  const staffHiringStats = useMemo(() => {
+    const total = staffRows.length
+    const active = staffRows.filter((row) => row.is_active).length
+    const inactive = Math.max(0, total - active)
+    const recentCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+    const hiredThisMonth = staffRows.filter((row) => {
+      if (!row.created_at) return false
+      return new Date(row.created_at).getTime() >= recentCutoff
+    }).length
+    return { total, active, inactive, hiredThisMonth }
+  }, [staffRows])
 
   useEffect(() => {
     let active = true
@@ -313,6 +332,24 @@ export default function Dashboard() {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    if (!branches.length) return
+
+    if (selectedOutlet === 'all') {
+      setKanbanBranchId('all')
+      setReservationBranch('all')
+      setReviewBranch('all')
+      setMonitorBranchId((prev) => prev || branches[0]?.id || '')
+      return
+    }
+
+    setMonitorBranchId(selectedOutlet)
+    setKanbanBranchId(selectedOutlet)
+    setReservationBranch(selectedOutlet)
+    setReviewBranch(selectedOutlet)
+    setNewStaff((prev) => ({ ...prev, branch_id: prev.branch_id || selectedOutlet }))
+  }, [selectedOutlet, branches])
 
   const fetchMetrics = async () => {
     const todayIso = startOfTodayIso()
@@ -441,8 +478,12 @@ export default function Dashboard() {
       activeOrdersByBranch.set(row.branch_id, (activeOrdersByBranch.get(row.branch_id) || 0) + 1)
     }
 
+    const visibleBranches = selectedOutlet === 'all'
+      ? branches
+      : branches.filter((branch) => branch.id === selectedOutlet)
+
     setBranchOverview(
-      branches.map((branch) => ({
+      visibleBranches.map((branch) => ({
         branch,
         staffPresent: presentByBranch.get(branch.id) || 0,
         staffTotal: staffByBranch.get(branch.id) || 0,
@@ -512,7 +553,7 @@ export default function Dashboard() {
   const fetchStaffTable = async () => {
     let query = supabase
       .from('profiles')
-      .select('id, full_name, role, branch_id, employee_id, avatar_url, phone, is_active')
+      .select('id, full_name, role, branch_id, employee_id, avatar_url, phone, is_active, created_at')
       .eq('role', 'staff')
       .order('created_at', { ascending: false })
 
@@ -705,7 +746,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchBranchOverview()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branches.length])
+  }, [branches.length, selectedOutlet])
 
   useEffect(() => {
     fetchOrders()
@@ -714,7 +755,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchMenu()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -834,7 +874,7 @@ export default function Dashboard() {
       full_name: '',
       phone: '',
       role: 'staff',
-      branch_id: branches[0]?.id || '',
+      branch_id: selectedOutlet !== 'all' ? selectedOutlet : (branches[0]?.id || ''),
       employee_id: id,
       password: randomPassword(8),
     })
@@ -1020,6 +1060,13 @@ export default function Dashboard() {
   const renderMonitor = () => {
     return (
       <div className="admin-page monitor-page">
+        <section className="panel scope-banner">
+          <p>
+            Branch Scope
+            <strong>{selectedOutletLabel}</strong>
+          </p>
+        </section>
+
         <div className="metric-grid">
           <article><h3>Today's Revenue</h3><p>{formatMoney(metrics.revenue)}</p></article>
           <article><h3>Active Orders</h3><p>{metrics.activeOrders}</p></article>
@@ -1028,9 +1075,9 @@ export default function Dashboard() {
         </div>
 
         <section className="panel">
-          <h2>Staff Status — All Branches</h2>
+          <h2>Staff Status — {monitorBranchId ? (branchNameById.get(monitorBranchId) || 'Selected Branch') : 'Branch'}</h2>
           <div className="pill-row">
-            {branches.map((branch) => (
+            {branchFilterOptions.map((branch) => (
               <button
                 key={branch.id}
                 type="button"
@@ -1070,6 +1117,7 @@ export default function Dashboard() {
                 </article>
               )
             })}
+            {!staffStatusRows.length ? <p className="muted">No active staff found for this branch.</p> : null}
           </div>
         </section>
 
@@ -1129,8 +1177,8 @@ export default function Dashboard() {
           <div className="panel-head">
             <h2>Orders Kanban</h2>
             <select value={kanbanBranchId} onChange={(event) => setKanbanBranchId(event.target.value)}>
-              <option value="all">All branches</option>
-              {branches.map((branch) => (
+              {selectedOutlet === 'all' ? <option value="all">All branches</option> : null}
+              {branchFilterOptions.map((branch) => (
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
             </select>
@@ -1186,8 +1234,15 @@ export default function Dashboard() {
       <div className="admin-page">
         <section className="panel">
           <div className="panel-head">
-            <h2>Staff Management {selectedOutlet === 'all' ? '(All Branches)' : `(${branchNameById.get(selectedOutlet) || 'Selected Branch'})`}</h2>
+            <h2>Staff Hiring & Management ({selectedOutletLabel})</h2>
             <button type="button" onClick={openAddStaff}>Add Staff</button>
+          </div>
+
+          <div className="staff-hiring-grid">
+            <article><h3>Total Staff</h3><p>{staffHiringStats.total}</p></article>
+            <article><h3>Active Staff</h3><p>{staffHiringStats.active}</p></article>
+            <article><h3>Inactive Staff</h3><p>{staffHiringStats.inactive}</p></article>
+            <article><h3>Hired (30 days)</h3><p>{staffHiringStats.hiredThisMonth}</p></article>
           </div>
 
           <div className="table-wrap">
@@ -1221,6 +1276,11 @@ export default function Dashboard() {
                     </td>
                   </tr>
                 ))}
+                {!staffRows.length ? (
+                  <tr>
+                    <td colSpan={7}>No staff records found in this branch scope.</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -1247,12 +1307,18 @@ export default function Dashboard() {
           <div className="modal-backdrop">
             <div className="modal-card">
               <h3>Add Staff</h3>
-              <label>Full Name<input value={newStaff.full_name} onChange={(e) => setNewStaff({ ...newStaff, full_name: e.target.value })} /></label>
-              <label>Phone<input value={newStaff.phone} onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })} /></label>
+              <label>Full Name<input placeholder="e.g. Aarav Singh" value={newStaff.full_name} onChange={(e) => setNewStaff({ ...newStaff, full_name: e.target.value })} /></label>
+              <label>Phone<input placeholder="+91..." value={newStaff.phone} onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })} /></label>
               <label>Role<select value={newStaff.role} onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}><option value="staff">staff</option></select></label>
               <label>Branch<select value={newStaff.branch_id} onChange={(e) => setNewStaff({ ...newStaff, branch_id: e.target.value })}>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-              <label>Employee ID<input value={newStaff.employee_id} onChange={(e) => setNewStaff({ ...newStaff, employee_id: e.target.value })} /></label>
+              <label>Employee ID<input value={newStaff.employee_id} onChange={(e) => setNewStaff({ ...newStaff, employee_id: e.target.value.toUpperCase() })} /></label>
+              <div className="row-actions">
+                <button type="button" onClick={() => setNewStaff((prev) => ({ ...prev, employee_id: `QF-${randomDigits(4)}` }))}>Regenerate ID</button>
+              </div>
               <label>Password<input value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} /></label>
+              <div className="row-actions">
+                <button type="button" onClick={() => setNewStaff((prev) => ({ ...prev, password: randomPassword(8) }))}>Regenerate Password</button>
+              </div>
               <div className="row-actions"><button type="button" onClick={() => setShowAddStaff(false)}>Cancel</button><button type="button" onClick={submitAddStaff}>Create</button></div>
             </div>
           </div>
@@ -1353,8 +1419,8 @@ export default function Dashboard() {
             <h2>Reservations</h2>
             <div className="filters-row">
               <select value={reservationBranch} onChange={(e) => setReservationBranch(e.target.value)}>
-                <option value="all">All branches</option>
-                {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                {selectedOutlet === 'all' ? <option value="all">All branches</option> : null}
+                {branchFilterOptions.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
               </select>
               <input type="date" value={reservationDate} onChange={(e) => setReservationDate(e.target.value)} />
             </div>
@@ -1530,8 +1596,8 @@ export default function Dashboard() {
             <h2>Customer Reviews</h2>
             <div className="filters-row">
               <select value={reviewBranch} onChange={(event) => setReviewBranch(event.target.value)}>
-                <option value="all">All branches</option>
-                {branches.map((branch) => (
+                {selectedOutlet === 'all' ? <option value="all">All branches</option> : null}
+                {branchFilterOptions.map((branch) => (
                   <option key={branch.id} value={branch.id}>{branch.name}</option>
                 ))}
               </select>
@@ -1605,7 +1671,10 @@ export default function Dashboard() {
   return (
     <main className="admin-dashboard-page">
       <header className="admin-topbar">
-        <h1>Qaffeine Admin</h1>
+        <div className="topbar-brand">
+          <h1>Qaffeine Admin</h1>
+          <p>{selectedOutletLabel} control center</p>
+        </div>
         <div className="topbar-actions">
           <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)}>
             <option value="all">All outlets</option>

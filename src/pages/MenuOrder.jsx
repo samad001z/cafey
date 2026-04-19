@@ -829,6 +829,7 @@ export default function MenuOrder() {
 
   const openCheckout = () => {
     const pending = readPendingPaymentReceipt()
+    const hasNewCartItems = cartItems.length > 0
 
     if (!cartItems.length && !hasReceipt && !pending) {
       toast.error('Start adding items to continue.')
@@ -837,7 +838,15 @@ export default function MenuOrder() {
 
     const defaultOutlet = selectedOutlet !== 'all' ? selectedOutlet : branches[0]?.id || ''
 
-    if (hasReceipt) {
+    if (hasReceipt && hasNewCartItems) {
+      // Starting a fresh order should not reopen an old cached receipt.
+      setPaymentSuccess(false)
+      setCreatedOrderId('')
+      setReceipt(null)
+      sessionStorage.removeItem(LAST_RECEIPT_KEY)
+    }
+
+    if (hasReceipt && !hasNewCartItems) {
       setCheckoutStep(3)
       setIsCheckoutOpen(true)
       return

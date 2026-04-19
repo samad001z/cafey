@@ -805,6 +805,136 @@
   100% { box-shadow: 0 0 0 0 rgba(37, 154, 97, 0); }
 }
 
+/* 2026 SaaS visual uplift */
+:root {
+  --admin-bg: #eef3ff;
+  --admin-ink: #12203f;
+  --admin-muted: #5d6f98;
+  --admin-panel: rgba(255, 255, 255, 0.8);
+  --admin-border: rgba(146, 172, 238, 0.36);
+  --admin-primary: #6e8fff;
+  --admin-primary-soft: rgba(110, 143, 255, 0.15);
+  --admin-success: #22b784;
+  --admin-warning: #cf9a39;
+  --admin-danger: #e0618d;
+  --admin-shadow: 0 16px 34px rgba(41, 63, 120, 0.15);
+}
+
+.admin-dashboard-page {
+  background:
+    radial-gradient(920px 520px at 10% 0%, rgba(132, 164, 255, 0.24), transparent 58%),
+    radial-gradient(780px 480px at 96% 8%, rgba(102, 224, 196, 0.2), transparent 62%),
+    linear-gradient(165deg, #e8f0ff, #edf4ff 45%, #f8fbff);
+  color: var(--admin-ink);
+}
+
+.admin-topbar,
+.admin-sidebar,
+.admin-content,
+.panel,
+.side-panel,
+.modal-card,
+.table-wrap,
+.credential-card,
+.metric-grid article,
+.staff-card,
+.branch-overview-grid article,
+.charts-grid article,
+.insights-metric-grid article,
+.insights-suggestion-grid article,
+.staff-hiring-grid article,
+.inventory-alert-card,
+.kanban-col,
+.kanban-card {
+  background: var(--admin-panel);
+  border-color: var(--admin-border);
+  backdrop-filter: blur(12px);
+}
+
+.topbar-actions select,
+.topbar-actions .logout,
+.topbar-actions .icon-btn,
+.admin-sidebar button,
+.panel select,
+.panel input,
+.panel textarea,
+.side-panel select,
+.side-panel input,
+.side-panel textarea,
+.modal-card select,
+.modal-card input,
+.modal-card textarea {
+  border-color: rgba(146, 172, 238, 0.45);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--admin-ink);
+}
+
+.panel button,
+.side-panel button,
+.modal-card button,
+.topbar-actions .logout {
+  background: linear-gradient(135deg, #89a8ff, #6e8fff 55%, #6be0c3);
+  border-color: transparent;
+  color: #082344;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(91, 124, 218, 0.25);
+}
+
+.admin-sidebar button.active,
+.pill-row button.active {
+  border-color: #84a3ff;
+  color: #2a4b9a;
+  background: linear-gradient(125deg, rgba(133, 168, 255, 0.28), rgba(107, 224, 195, 0.14));
+}
+
+.scope-banner {
+  background: linear-gradient(120deg, rgba(133, 168, 255, 0.2), rgba(107, 224, 195, 0.16));
+}
+
+.status {
+  border-color: rgba(143, 169, 235, 0.48);
+  background: rgba(247, 250, 255, 0.92);
+}
+
+.status.present,
+.status.confirmed {
+  color: #1fa678;
+}
+
+.status.late,
+.status.preparing {
+  color: #b07a1f;
+}
+
+.status.absent {
+  color: #d24b79;
+}
+
+.status.placed {
+  color: #5f82eb;
+}
+
+.status.ready {
+  color: #2c9dcf;
+}
+
+.panel button:hover,
+.side-panel button:hover,
+.modal-card button:hover,
+.topbar-actions .logout:hover,
+.admin-sidebar button:hover,
+.kanban-card:hover {
+  transform: translateY(-1px);
+}
+
+.admin-dashboard-page button:focus-visible,
+.admin-dashboard-page input:focus-visible,
+.admin-dashboard-page select:focus-visible,
+.admin-dashboard-page textarea:focus-visible {
+  outline: 2px solid rgba(106, 224, 197, 0.95);
+  outline-offset: 2px;
+}
+
 @media (max-width: 1240px) {
   .metric-grid,
   .staff-hiring-grid,

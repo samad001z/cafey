@@ -2061,6 +2061,188 @@
   }
 }
 
+/* 2026 SaaS visual uplift */
+.menu-order-page {
+  --mo-bg-0: #070b1b;
+  --mo-bg-1: #121834;
+  --mo-bg-2: #1b2450;
+  --mo-panel: rgba(16, 23, 48, 0.78);
+  --mo-panel-strong: rgba(18, 26, 55, 0.92);
+  --mo-border: rgba(144, 182, 255, 0.3);
+  --mo-accent: #8ba7ff;
+  --mo-accent-2: #6de3c8;
+  --mo-text: #f4f7ff;
+  --mo-muted: #bdcaee;
+  background:
+    radial-gradient(1000px 580px at 10% 0%, rgba(143, 170, 255, 0.19), transparent 55%),
+    radial-gradient(760px 460px at 100% 8%, rgba(109, 227, 200, 0.17), transparent 60%),
+    linear-gradient(165deg, var(--mo-bg-0), var(--mo-bg-1) 45%, var(--mo-bg-2));
+  color: var(--mo-text);
+}
+
+.mo-left-sidebar,
+.mo-main-content,
+.mo-cart-sidebar,
+.mo-modal,
+.mo-mod-sheet,
+.mo-receipt-sheet,
+.qr-gate-card,
+.mo-qr-modal {
+  border: 1px solid var(--mo-border);
+  background: var(--mo-panel);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 44px rgba(2, 7, 24, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.mo-left-sidebar h2,
+.mo-cart-sidebar h2,
+.mo-category-head h3,
+.mo-step-content h3,
+.qr-gate-card h1,
+.mo-success-head h3,
+.mo-receipt-head h4 {
+  color: #ffffff;
+  letter-spacing: 0.01em;
+}
+
+.mo-item-card,
+.mo-cart-items article,
+.mo-review-list,
+.mo-recent-list article,
+.mo-mod-options button,
+.mo-step-head .dot,
+.mo-receipt-lines,
+.mo-receipt-fallback {
+  border-color: rgba(156, 191, 255, 0.27);
+  background: rgba(12, 18, 39, 0.68);
+}
+
+.mo-item-card {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.mo-item-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 167, 255, 0.62);
+  box-shadow: 0 12px 28px rgba(3, 8, 26, 0.34);
+}
+
+.mo-item-meta strong,
+.mo-bill .total strong,
+.mo-review-bill strong,
+.mo-recent-head a {
+  color: var(--mo-accent);
+}
+
+.mo-search,
+.mo-outlet-picker,
+.manual-entry input,
+.mo-step-content select,
+.mo-step-content input,
+.mo-qr-modal input,
+.mo-mobile-category-picker select {
+  background: rgba(11, 16, 35, 0.72);
+  border-color: rgba(148, 183, 255, 0.34);
+  color: var(--mo-text);
+}
+
+.mo-search:focus-within,
+.mo-outlet-picker:focus-within,
+.manual-entry input:focus,
+.mo-step-content select:focus,
+.mo-step-content input:focus,
+.mo-qr-modal input:focus,
+.mo-mobile-category-picker select:focus {
+  border-color: var(--mo-accent);
+  box-shadow: 0 0 0 3px rgba(139, 167, 255, 0.2);
+}
+
+.mo-item-right > button,
+.mo-step-actions .next,
+.mo-checkout-btn,
+.manual-entry button,
+.scan-btn,
+.mo-mod-sheet footer .next,
+.mo-receipt-fallback .next {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, var(--mo-accent), #7d95ff 55%, #6fbfff);
+  color: #031030;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(84, 121, 232, 0.34);
+}
+
+.mo-step-actions button:not(.next),
+.mo-close,
+.mo-qr-modal footer button,
+.mo-qr-modal header button,
+.mo-left-sidebar button,
+.mo-type-toggle button {
+  background: rgba(18, 25, 53, 0.78);
+  border-color: rgba(153, 187, 255, 0.34);
+  color: var(--mo-text);
+}
+
+.mo-left-sidebar button.active,
+.mo-type-toggle button.active,
+.mo-mod-options button.active {
+  border-color: var(--mo-accent);
+  background: linear-gradient(135deg, rgba(139, 167, 255, 0.29), rgba(109, 227, 200, 0.16));
+  color: #f7fbff;
+}
+
+.mo-step-head .dot.active span {
+  background: linear-gradient(135deg, var(--mo-accent), var(--mo-accent-2));
+  color: #042036;
+}
+
+.mo-success {
+  border-color: rgba(138, 168, 255, 0.46);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(139, 167, 255, 0.3), transparent 35%),
+    radial-gradient(circle at 92% 100%, rgba(109, 227, 200, 0.24), transparent 40%),
+    linear-gradient(170deg, rgba(15, 23, 49, 0.94) 0%, rgba(10, 17, 38, 0.95) 100%);
+}
+
+.mo-receipt-card {
+  border-color: rgba(149, 179, 248, 0.45);
+  background:
+    linear-gradient(180deg, rgba(245, 250, 255, 0.96), rgba(236, 244, 255, 0.94)),
+    repeating-linear-gradient(180deg, rgba(88, 117, 168, 0.08) 0 2px, transparent 2px 28px);
+  box-shadow: 0 18px 34px rgba(6, 10, 24, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.mo-recent-list .status,
+.mo-86-badge {
+  border-color: rgba(130, 227, 201, 0.38);
+  color: #8de8d0;
+  background: rgba(87, 201, 173, 0.14);
+}
+
+.mo-mobile-cartbar {
+  border-color: rgba(149, 182, 255, 0.8);
+  background: linear-gradient(130deg, rgba(139, 167, 255, 0.97), rgba(109, 227, 200, 0.97));
+  box-shadow: 0 18px 34px rgba(5, 9, 26, 0.48);
+}
+
+.mo-step-actions button:hover,
+.mo-item-right > button:hover,
+.mo-checkout-btn:hover,
+.scan-btn:hover,
+.manual-entry button:hover,
+.mo-mod-sheet footer .next:hover,
+.mo-receipt-fallback .next:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.menu-order-page button:focus-visible,
+.menu-order-page input:focus-visible,
+.menu-order-page select:focus-visible,
+.menu-order-page a:focus-visible {
+  outline: 2px solid rgba(131, 230, 205, 0.95);
+  outline-offset: 2px;
+}
+
 @media print {
   body {
     background: #fff !important;

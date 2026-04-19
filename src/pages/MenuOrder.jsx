@@ -452,6 +452,7 @@ export default function MenuOrder() {
   const [tableNumber, setTableNumber] = useState(searchParams.get('table') || routeTableNumber || '')
   const [paying, setPaying] = useState(false)
   const [paymentCompleted, setPaymentCompleted] = useState(false)
+  const [isReceiptSheetOpen, setIsReceiptSheetOpen] = useState(false)
   const [createdOrderId, setCreatedOrderId] = useState('')
   const [receipt, setReceipt] = useState(null)
   const [manualTableInput, setManualTableInput] = useState('')
@@ -469,6 +470,7 @@ export default function MenuOrder() {
   const scannerRafRef = useRef(null)
   const pendingRecoveryHandledRef = useRef('')
   const paymentHandledRef = useRef(false)
+  const lastReceiptShownRef = useRef('')
 
   const hasReceipt = Boolean(receipt?.orderId && receipt?.paidAt)
 
@@ -503,6 +505,13 @@ export default function MenuOrder() {
       // Ignore invalid cached receipt payloads.
     }
   }, [])
+
+  useEffect(() => {
+    if (!hasReceipt || !receipt?.orderId) return
+    if (lastReceiptShownRef.current === receipt.orderId) return
+    lastReceiptShownRef.current = receipt.orderId
+    setIsReceiptSheetOpen(true)
+  }, [hasReceipt, receipt?.orderId])
 
   const branchNameMap = useMemo(() => {
     const map = new Map()
@@ -882,6 +891,7 @@ export default function MenuOrder() {
     if (hasReceipt && hasNewCartItems) {
       // Starting a fresh order should not reopen an old cached receipt.
       setPaymentCompleted(false)
+      setIsReceiptSheetOpen(false)
       setCreatedOrderId('')
       setReceipt(null)
       sessionStorage.removeItem(LAST_RECEIPT_KEY)
@@ -905,6 +915,7 @@ export default function MenuOrder() {
       }
       setCheckoutStep(3)
       setPaymentCompleted(false)
+      setIsReceiptSheetOpen(false)
       setCreatedOrderId('')
       setReceipt(null)
       setIsCheckoutOpen(true)
@@ -914,6 +925,7 @@ export default function MenuOrder() {
     setCheckoutOutlet(defaultOutlet)
     setCheckoutStep(1)
     setPaymentCompleted(false)
+    setIsReceiptSheetOpen(false)
     setCreatedOrderId('')
     setReceipt(null)
     sessionStorage.removeItem(LAST_RECEIPT_KEY)
@@ -1012,6 +1024,8 @@ export default function MenuOrder() {
     setCreatedOrderId(orderId)
     setPaymentCompleted(true)
     revealReceiptInCheckout()
+    setIsCheckoutOpen(false)
+    setIsReceiptSheetOpen(true)
     paymentHandledRef.current = true
     sessionStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receiptPayload))
     sessionStorage.removeItem(PENDING_PAYMENT_KEY)
@@ -2016,6 +2030,90 @@ export default function MenuOrder() {
                 </div>
               ) : null}
             </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isReceiptSheetOpen && receipt ? (
+          <motion.div
+            className="mo-receipt-sheet-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.section
+              className="mo-receipt-sheet"
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 80, opacity: 0 }}
+              transition={{ duration: 0.24 }}
+            >
+              <header className="mo-receipt-sheet-head">
+                <h3>Payment Receipt</h3>
+                <button type="button" className="mo-close mo-receipt-sheet-close" onClick={() => setIsReceiptSheetOpen(false)} aria-label="Close receipt">
+                  <X size={16} />
+                </button>
+              </header>
+
+              <article className="mo-receipt-card" aria-label="Order Receipt">
+                <header className="mo-receipt-head">
+                  <div>
+                    <p className="eyebrow">Qaffeine Coffee House</p>
+                    <h4>Tax Invoice</h4>
+                  </div>
+                  <strong>#{String(createdOrderId || receipt.orderId || '').slice(0, 8).toUpperCase()}</strong>
+                </header>
+
+                <div className="mo-receipt-meta">
+                  <span><b>Guest</b> {receipt.customerName || 'Walk-in Customer'}</span>
+                  <span><b>Outlet</b> {receipt.outletName}</span>
+                  <span><b>Order Type</b> {receipt.orderType.replace('_', ' ')}</span>
+                  {receipt.tableNumber ? <span><b>Table</b> {receipt.tableNumber}</span> : null}
+                  <span><b>Invoice Date</b> {new Date(receipt.paidAt).toLocaleString()}</span>
+                  <span><b>Payment</b> Razorpay (UPI/Card/Netbanking)</span>
+                </div>
+
+                <div className="mo-receipt-lines" role="table" aria-label="Receipt line items">
+                  <div className="mo-receipt-line-head" role="row">
+                    <span role="columnheader">Item</span>
+                    <span role="columnheader">Qty</span>
+                    <span role="columnheader">Rate</span>
+                    <strong role="columnheader">Amount</strong>
+                  </div>
+                  {receipt.items.map((item) => (
+                    <div key={`${item.id}-${item.name}`} className="mo-receipt-line-row" role="row">
+                      <span>
+                        {item.name}
+                        {item.modifierSummary ? <small className="mo-receipt-modifiers">{item.modifierSummary}</small> : null}
+                      </span>
+                      <span>{item.quantity}</span>
+                      <span>₹{item.unitPrice.toFixed(2)}</span>
+                      <strong>₹{(item.unitPrice * item.quantity).toFixed(2)}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mo-receipt-total">
+                  <p><span>Subtotal</span><strong>₹{receipt.subtotal.toFixed(2)}</strong></p>
+                  <p><span>GST (5%)</span><strong>₹{receipt.gstAmount.toFixed(2)}</strong></p>
+                  <p><span>Packaging</span><strong>₹{receipt.packaging.toFixed(2)}</strong></p>
+                  <p className="grand"><span>Total Paid</span><strong>₹{receipt.total.toFixed(2)}</strong></p>
+                </div>
+              </article>
+
+              <div className="mo-step-actions receipt-actions">
+                <button type="button" className="next" onClick={() => window.print()}>
+                  Print Receipt
+                </button>
+                <Link className="next" to="/order-details" onClick={() => setIsReceiptSheetOpen(false)}>
+                  View Orders
+                </Link>
+                <button type="button" onClick={() => setIsReceiptSheetOpen(false)}>
+                  Done
+                </button>
+              </div>
+            </motion.section>
           </motion.div>
         ) : null}
       </AnimatePresence>

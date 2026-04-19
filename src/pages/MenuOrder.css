@@ -888,6 +888,44 @@
   backdrop-filter: blur(10px);
 }
 
+.mo-receipt-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 320;
+  display: grid;
+  place-items: end center;
+  padding: 0.7rem;
+}
+
+.mo-receipt-sheet {
+  width: min(760px, 98vw);
+  background: #1c1108;
+  border: 1px solid rgba(200, 133, 58, 0.3);
+  border-radius: 18px;
+  padding: 0.9rem;
+  max-height: calc(100dvh - 1.4rem);
+  overflow-y: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mo-receipt-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.mo-receipt-sheet-head h3 {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+}
+
+.mo-receipt-sheet-close {
+  position: static;
+}
+
 .mo-mod-backdrop {
   position: fixed;
   inset: 0;
@@ -1911,6 +1949,19 @@
     border-radius: 16px;
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
+  }
+
+  .mo-receipt-sheet-backdrop {
+    padding: 0.5rem;
+  }
+
+  .mo-receipt-sheet {
+    width: 100%;
+    border-radius: 16px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    max-height: calc(100dvh - 1rem);
+    padding: 0.8rem;
   }
 
   .mo-close {

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
 import { Check, Coffee, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
@@ -25,8 +24,20 @@ function normalizePhone(value) {
   return String(value || '').replace(/[^0-9+]/g, '')
 }
 
+function shortOrderId(orderId) {
+  const raw = String(orderId || '').trim()
+  if (!raw) return '------'
+  return `${raw.slice(0, 8).toUpperCase()}`
+}
+
+function formatOrderType(value) {
+  return String(value || 'order')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
 export default function OrderDetails() {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
 
   const [branches, setBranches] = useState([])
   const [query, setQuery] = useState('')
@@ -369,9 +380,12 @@ export default function OrderDetails() {
             <h2>Active Orders</h2>
             <div className="od-active-list">
               {activeOrders.map((order) => (
-                <button key={order.id} type="button" onClick={() => setTrackingOrder(order)}>
-                  <span>{order.id.slice(0, 8)}...</span>
-                  <strong>{stageLabels[order.status] || order.status}</strong>
+                <button key={order.id} type="button" onClick={() => setTrackingOrder(order)} className={trackingOrder?.id === order.id ? 'active' : ''}>
+                  <span className="id-chip">#{shortOrderId(order.id)}</span>
+                  <span className="meta">
+                    <b>{stageLabels[order.status] || order.status}</b>
+                    <small>{formatOrderType(order.order_type)} · ₹{Number(order.total_amount || 0).toFixed(2)}</small>
+                  </span>
                 </button>
               ))}
             </div>
@@ -382,10 +396,11 @@ export default function OrderDetails() {
           <section className="od-tracking-card">
             <div className="od-order-head">
               <div>
-                <h2>Order #{trackingOrder.id}</h2>
+                <h2>Order #{shortOrderId(trackingOrder.id)}</h2>
                 <p>
-                  {branchNameMap.get(trackingOrder.branch_id) || 'Qaffeine Outlet'} · {trackingOrder.order_type}
+                  {branchNameMap.get(trackingOrder.branch_id) || 'Qaffeine Outlet'} · {formatOrderType(trackingOrder.order_type)}
                 </p>
+                <code className="od-order-code">{trackingOrder.id}</code>
               </div>
               <strong>₹{Number(trackingOrder.total_amount || 0).toFixed(2)}</strong>
             </div>
@@ -415,32 +430,29 @@ export default function OrderDetails() {
           {!historyOrders.length ? (
             <p className="od-empty">No order history yet.</p>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                  <th>Created</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td>{order.id.slice(0, 10)}...</td>
-                    <td>{stageLabels[order.status] || order.status}</td>
-                    <td>₹{Number(order.total_amount || 0).toFixed(2)}</td>
-                    <td>{new Date(order.created_at).toLocaleString()}</td>
-                    <td>
-                      <Link className="reorder" to={`/menu-order?reorder=${order.id}`}>
-                        <Coffee size={14} /> Reorder
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="od-history-list">
+              {historyOrders.map((order) => (
+                <article key={order.id}>
+                  <div className="od-history-top">
+                    <p>#{shortOrderId(order.id)}</p>
+                    <strong>₹{Number(order.total_amount || 0).toFixed(2)}</strong>
+                  </div>
+                  <div className="od-history-meta">
+                    <span>{stageLabels[order.status] || order.status}</span>
+                    <span>{formatOrderType(order.order_type)}</span>
+                    <span>{new Date(order.created_at).toLocaleString()}</span>
+                  </div>
+                  <div className="od-history-actions">
+                    <button type="button" onClick={() => setTrackingOrder(order)}>
+                      Track
+                    </button>
+                    <Link className="reorder" to={`/menu-order?reorder=${order.id}`}>
+                      <Coffee size={14} /> Reorder
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
           )}
         </section>
       </section>

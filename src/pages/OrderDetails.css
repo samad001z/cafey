@@ -79,20 +79,55 @@
 }
 
 .od-active-list button {
-  min-height: 38px;
-  border-radius: 999px;
+  min-height: 58px;
+  border-radius: 16px;
   border: 1px solid rgba(200, 133, 58, 0.25);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.01);
   color: #f5edd6;
-  padding: 0 0.7rem;
+  padding: 0.55rem 0.7rem;
   display: inline-flex;
-  gap: 0.4rem;
+  gap: 0.6rem;
   align-items: center;
   cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background-color 150ms ease;
 }
 
-.od-active-list strong {
+.od-active-list button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(200, 133, 58, 0.45);
+}
+
+.od-active-list button.active {
+  border-color: #c8853a;
+  background: rgba(200, 133, 58, 0.16);
+}
+
+.od-active-list .id-chip {
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 133, 58, 0.4);
+  padding: 0 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: #c8853a;
+}
+
+.od-active-list .meta {
+  display: grid;
+  gap: 0.12rem;
+  text-align: left;
+}
+
+.od-active-list .meta b {
+  color: #f5edd6;
+  font-size: 0.92rem;
+}
+
+.od-active-list .meta small {
+  color: #bca58b;
 }
 
 .od-tracking-card {
@@ -113,6 +148,17 @@
 .od-order-head p {
   margin: 0.45rem 0 0;
   color: #8a7560;
+}
+
+.od-order-code {
+  display: inline-block;
+  margin-top: 0.48rem;
+  color: #d2ba9c;
+  border: 1px solid rgba(200, 133, 58, 0.35);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.75rem;
 }
 
 .od-stepper {
@@ -158,37 +204,81 @@
   margin-top: 1rem;
 }
 
-.od-history table {
-  margin-top: 0.7rem;
-  width: 100%;
-  border-collapse: collapse;
+.od-history-list {
+  margin-top: 0.72rem;
+  display: grid;
+  gap: 0.6rem;
 }
 
-.od-history th,
-.od-history td {
-  border-bottom: 1px solid rgba(200, 133, 58, 0.16);
-  text-align: left;
-  padding: 0.55rem 0.45rem;
-  font-size: 0.9rem;
+.od-history-list article {
+  border: 1px solid rgba(200, 133, 58, 0.2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.01);
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
 }
 
-.od-history th {
-  color: #c8853a;
+.od-history-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.od-history-top p {
+  margin: 0;
+  color: #f5edd6;
   font-weight: 700;
 }
 
-.od-history td {
+.od-history-top strong {
   color: #f5edd6;
 }
 
+.od-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.od-history-meta span {
+  min-height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 133, 58, 0.24);
+  padding: 0 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  color: #bca58b;
+  font-size: 0.8rem;
+}
+
+.od-history-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.od-history-actions button,
 .od-history .reorder {
   border: 1px solid rgba(200, 133, 58, 0.35);
   border-radius: 999px;
-  min-height: 32px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
   padding: 0 0.7rem;
+  color: #f5edd6;
+  background: rgba(255, 255, 255, 0.01);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.od-history-actions button {
+  min-width: 86px;
+}
+
+.od-history .reorder {
   color: #c8853a;
 }
 
@@ -361,14 +451,6 @@
     grid-template-columns: 1fr;
   }
 
-  .od-history {
-    overflow-x: auto;
-  }
-
-  .od-history table {
-    min-width: 680px;
-  }
-
   .od-rating-grid {
     grid-template-columns: 1fr;
   }
@@ -392,17 +474,16 @@
 
   .od-active-list button {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 
-  .od-history table {
-    min-width: 560px;
+  .od-history-actions {
+    flex-direction: column;
   }
 
-  .od-history th,
-  .od-history td {
-    font-size: 0.82rem;
-    padding: 0.5rem 0.4rem;
+  .od-history-actions button,
+  .od-history .reorder {
+    width: 100%;
   }
 
   .od-review-actions {

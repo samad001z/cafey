@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import './MenuOrder.css'
 
 const LAST_RECEIPT_KEY = 'qaffeine_last_receipt'
+const LAST_RECEIPT_AUTOSHOW_KEY = 'qaffeine_last_receipt_autoshow'
 const PENDING_PAYMENT_KEY = 'qaffeine_pending_payment_receipt'
 const MENU_CACHE_KEY = 'qaffeine_menu_cache_v1'
 const PENDING_PAYMENT_MAX_AGE_MS = 30 * 60 * 1000
@@ -509,9 +510,12 @@ export default function MenuOrder() {
 
   useEffect(() => {
     if (!hasReceipt || !receipt?.orderId) return
+    const autoShowForOrderId = String(sessionStorage.getItem(LAST_RECEIPT_AUTOSHOW_KEY) || '')
+    if (!autoShowForOrderId || autoShowForOrderId !== receipt.orderId) return
     if (lastReceiptShownRef.current === receipt.orderId) return
     lastReceiptShownRef.current = receipt.orderId
     setIsReceiptSheetOpen(true)
+    sessionStorage.removeItem(LAST_RECEIPT_AUTOSHOW_KEY)
   }, [hasReceipt, receipt?.orderId])
 
   const branchNameMap = useMemo(() => {
@@ -897,6 +901,7 @@ export default function MenuOrder() {
       setCreatedOrderId('')
       setReceipt(null)
       sessionStorage.removeItem(LAST_RECEIPT_KEY)
+      sessionStorage.removeItem(LAST_RECEIPT_AUTOSHOW_KEY)
     }
 
     if (hasReceipt && !hasNewCartItems) {
@@ -922,6 +927,7 @@ export default function MenuOrder() {
       setIsReceiptSheetOpen(false)
       setCreatedOrderId('')
       setReceipt(null)
+      sessionStorage.removeItem(LAST_RECEIPT_AUTOSHOW_KEY)
       setIsCheckoutOpen(true)
       setTimeout(() => {
         recoverReceiptAfterPayment({ silent: true })
@@ -937,6 +943,7 @@ export default function MenuOrder() {
     setCreatedOrderId('')
     setReceipt(null)
     sessionStorage.removeItem(LAST_RECEIPT_KEY)
+    sessionStorage.removeItem(LAST_RECEIPT_AUTOSHOW_KEY)
     setIsCheckoutOpen(true)
   }
 
@@ -1031,6 +1038,7 @@ export default function MenuOrder() {
     setReceipt(receiptPayload)
     setCreatedOrderId(orderId)
     setPaymentCompleted(true)
+    sessionStorage.setItem(LAST_RECEIPT_AUTOSHOW_KEY, String(orderId))
     revealReceiptInCheckout()
     setIsCheckoutOpen(false)
     setIsReceiptSheetOpen(true)

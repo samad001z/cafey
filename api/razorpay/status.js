@@ -1,4 +1,9 @@
-import { getOrderByRazorpayOrderId, readJsonBody, sendJson } from '../_lib.js'
+import {
+  getOrderByRazorpayOrderId,
+  readJsonBody,
+  recoverVerifiedPaymentFromGateway,
+  sendJson,
+} from '../_lib.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -18,7 +23,18 @@ export default async function handler(req, res) {
       return
     }
 
-    const order = await getOrderByRazorpayOrderId(razorpayOrderId)
+    let order = await getOrderByRazorpayOrderId(razorpayOrderId)
+    if (!order?.id) {
+      try {
+        const recovered = await recoverVerifiedPaymentFromGateway(razorpayOrderId)
+        if (recovered?.orderId) {
+          order = { id: recovered.orderId }
+        }
+      } catch {
+        // Keep default non-verified response below if gateway recovery fails.
+      }
+    }
+
     sendJson(res, 200, {
       ok: true,
       verified: Boolean(order?.id),

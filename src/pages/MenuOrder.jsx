@@ -451,6 +451,7 @@ export default function MenuOrder() {
   const [checkoutOutlet, setCheckoutOutlet] = useState('')
   const [tableNumber, setTableNumber] = useState(searchParams.get('table') || routeTableNumber || '')
   const [paying, setPaying] = useState(false)
+  const [recoveringReceipt, setRecoveringReceipt] = useState(false)
   const [paymentCompleted, setPaymentCompleted] = useState(false)
   const [isReceiptSheetOpen, setIsReceiptSheetOpen] = useState(false)
   const [createdOrderId, setCreatedOrderId] = useState('')
@@ -891,6 +892,7 @@ export default function MenuOrder() {
     if (hasReceipt && hasNewCartItems) {
       // Starting a fresh order should not reopen an old cached receipt.
       setPaymentCompleted(false)
+      setRecoveringReceipt(false)
       setIsReceiptSheetOpen(false)
       setCreatedOrderId('')
       setReceipt(null)
@@ -898,6 +900,7 @@ export default function MenuOrder() {
     }
 
     if (hasReceipt && !hasNewCartItems) {
+      setRecoveringReceipt(false)
       setCheckoutStep(3)
       setIsCheckoutOpen(true)
       return
@@ -915,16 +918,21 @@ export default function MenuOrder() {
       }
       setCheckoutStep(3)
       setPaymentCompleted(false)
+      setRecoveringReceipt(true)
       setIsReceiptSheetOpen(false)
       setCreatedOrderId('')
       setReceipt(null)
       setIsCheckoutOpen(true)
+      setTimeout(() => {
+        recoverReceiptAfterPayment({ silent: true })
+      }, 60)
       return
     }
 
     setCheckoutOutlet(defaultOutlet)
     setCheckoutStep(1)
     setPaymentCompleted(false)
+    setRecoveringReceipt(false)
     setIsReceiptSheetOpen(false)
     setCreatedOrderId('')
     setReceipt(null)
@@ -1073,6 +1081,7 @@ export default function MenuOrder() {
     }
 
     setPaying(true)
+    setRecoveringReceipt(true)
 
     try {
       if (!pending.razorpayOrderId) {
@@ -1100,6 +1109,7 @@ export default function MenuOrder() {
       if (!silent) toast.error(error.message || 'Unable to recover payment receipt right now')
     } finally {
       setPaying(false)
+      setRecoveringReceipt(false)
     }
   }
 
@@ -1135,6 +1145,7 @@ export default function MenuOrder() {
   const handlePayment = async () => {
     setPaying(true)
     setPaymentCompleted(false)
+    setRecoveringReceipt(false)
     paymentHandledRef.current = false
 
     const loaded = await loadRazorpayScript()
@@ -1237,6 +1248,9 @@ export default function MenuOrder() {
       setPaying(false)
     }
   }
+
+  const pendingCheckoutPayment = isCheckoutOpen ? readPendingPaymentReceipt() : null
+  const shouldShowRecoveryPanel = Boolean(!paymentCompleted && !hasReceipt && pendingCheckoutPayment && cartItems.length === 0)
 
   const unlockWithManualTable = () => {
     const value = manualTableInput.trim()
@@ -1893,7 +1907,27 @@ export default function MenuOrder() {
 
               {checkoutStep === 3 ? (
                 <div className="mo-step-content">
-                  {!paymentCompleted && !hasReceipt ? (
+                  {shouldShowRecoveryPanel ? (
+                    <>
+                      <h3>Restoring Your Receipt</h3>
+                      <p className="muted">
+                        Payment looks completed. We are fetching your final receipt from server records.
+                      </p>
+                      <div className="mo-step-actions">
+                        <button type="button" onClick={() => setCheckoutStep(2)} disabled={recoveringReceipt}>
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          className="next"
+                          onClick={() => recoverReceiptAfterPayment()}
+                          disabled={recoveringReceipt}
+                        >
+                          {recoveringReceipt ? 'Recovering Receipt...' : 'Generate Receipt'}
+                        </button>
+                      </div>
+                    </>
+                  ) : !paymentCompleted && !hasReceipt ? (
                     <>
                       <h3>Pay with Razorpay</h3>
                       <p className="muted">Secure checkout for your order total of ₹{grandTotal.toFixed(2)}.</p>
@@ -1901,7 +1935,12 @@ export default function MenuOrder() {
                         <button type="button" onClick={() => setCheckoutStep(2)} disabled={paying}>
                           Back
                         </button>
-                        <button type="button" className="next" onClick={handlePayment} disabled={paying}>
+                        <button
+                          type="button"
+                          className="next"
+                          onClick={handlePayment}
+                          disabled={paying || grandTotal <= 0}
+                        >
                           {paying ? 'Opening Razorpay...' : 'Pay Now'}
                         </button>
                       </div>

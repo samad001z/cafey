@@ -148,6 +148,28 @@ export async function createRazorpayOrder({ amountPaise, receipt, notes = {} }) 
   return payload
 }
 
+export async function fetchRazorpayOrderPayments(razorpayOrderId) {
+  requireRazorpayConfig()
+  const safeOrderId = String(razorpayOrderId || '').trim()
+  if (!safeOrderId) return []
+
+  const response = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(safeOrderId)}/payments`, {
+    method: 'GET',
+    headers: {
+      Authorization: razorpayAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const message = payload?.error?.description || payload?.error?.reason || 'Unable to fetch Razorpay payments'
+    throw new Error(message)
+  }
+
+  return Array.isArray(payload?.items) ? payload.items : []
+}
+
 export function verifyRazorpayCheckoutSignature({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) {
   requireRazorpayConfig()
   const signedPayload = `${String(razorpayOrderId)}|${String(razorpayPaymentId)}`
@@ -292,6 +314,21 @@ export async function finalizeVerifiedPayment({ razorpayOrderId, razorpayPayment
   if (intentUpdateError) throw intentUpdateError
 
   return { orderId: orderPayload.id, idempotent: false }
+}
+
+export async function recoverVerifiedPaymentFromGateway(razorpayOrderId) {
+  const payments = await fetchRazorpayOrderPayments(razorpayOrderId)
+  const paidPayment = payments.find((row) => (
+    String(row?.order_id || '') === String(razorpayOrderId) &&
+    ['captured', 'authorized'].includes(String(row?.status || '').toLowerCase()) &&
+    String(row?.id || '').trim()
+  ))
+
+  if (!paidPayment?.id) return null
+  return finalizeVerifiedPayment({
+    razorpayOrderId: String(razorpayOrderId),
+    razorpayPaymentId: String(paidPayment.id),
+  })
 }
 
 export function resolvePlaceId(req) {

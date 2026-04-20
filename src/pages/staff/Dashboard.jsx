@@ -339,13 +339,13 @@ export default function Dashboard() {
     const [activeResp, todayResp] = await Promise.all([
       supabase
         .from('orders')
-        .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
+        .select('id, table_number, order_type, customer_note, status, created_at, total_amount, payment_status')
         .eq('branch_id', profile.branch_id)
         .in('status', ACTIVE_ORDER_STATUSES)
         .order('created_at', { ascending: false }),
       supabase
         .from('orders')
-        .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
+        .select('id, table_number, order_type, customer_note, status, created_at, total_amount, payment_status')
         .eq('branch_id', profile.branch_id)
         .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false }),
@@ -1142,6 +1142,10 @@ export default function Dashboard() {
                         )}
                       </ul>
 
+                      {order.customer_note ? (
+                        <p className="order-note"><strong>Note:</strong> {order.customer_note}</p>
+                      ) : null}
+
                       <div className="order-meta">
                         <p>{minutesAgo(order.created_at, now)} · ₹{Number(order.total_amount || 0).toFixed(2)}</p>
                         <span className={`status ${order.status}`}>{order.status}</span>
@@ -1254,6 +1258,10 @@ export default function Dashboard() {
                             </li>
                           )) : <li>No item details</li>}
                         </ul>
+
+                        {order.customer_note ? (
+                          <p className="kds-note"><strong>Note:</strong> {order.customer_note}</p>
+                        ) : null}
 
                         <footer>
                           <span>₹{Number(order.total_amount || 0).toFixed(2)}</span>

@@ -671,6 +671,21 @@
   margin: 0.18rem 0;
 }
 
+.order-note {
+  margin-top: 0.45rem !important;
+  border: 1px dashed rgba(214, 145, 69, 0.32);
+  border-radius: 10px;
+  background: rgba(214, 145, 69, 0.08);
+  color: #e7d4bf !important;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.83rem;
+  line-height: 1.35;
+}
+
+.order-note strong {
+  color: #ffd8a8;
+}
+
 .order-meta {
   margin-top: 0.55rem;
   display: flex;
@@ -931,6 +946,21 @@
 }
 
 .kds-ticket li strong {
+  color: #ffd8a8;
+}
+
+.kds-note {
+  margin: 0;
+  border: 1px dashed rgba(214, 145, 69, 0.3);
+  border-radius: 10px;
+  background: rgba(214, 145, 69, 0.08);
+  color: #ecd8c2;
+  padding: 0.36rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.kds-note strong {
   color: #ffd8a8;
 }
 

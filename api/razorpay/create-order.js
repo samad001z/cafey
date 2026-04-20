@@ -18,13 +18,9 @@ export default async function handler(req, res) {
       branchId,
       orderType,
       tableNumber,
+      customerNote,
       totalAmount,
-      subtotal,
-      gstAmount,
-      packaging,
       items,
-      customerName,
-      outletName,
     } = await readJsonBody(req)
 
     if (!branchId || !orderType || !Array.isArray(items) || !items.length) {
@@ -55,6 +51,7 @@ export default async function handler(req, res) {
       branch_id: branchId,
       order_type: orderType,
       table_number: orderType === 'takeaway' ? null : (tableNumber || null),
+      customer_note: String(customerNote || '').trim() || null,
       total_amount: Number(total.toFixed(2)),
       payment_status: 'paid',
       status: 'placed',

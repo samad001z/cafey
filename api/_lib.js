@@ -458,12 +458,30 @@ export async function getStaffOrdersForBranch(branchId) {
   const startOfDay = new Date()
   startOfDay.setHours(0, 0, 0, 0)
 
-  const { data: orders, error: ordersError } = await supabaseAdmin
+  let orders = null
+  let ordersError = null
+
+  const preferred = await supabaseAdmin
     .from('orders')
-    .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
+    .select('id, table_number, order_type, customer_note, status, created_at, total_amount, payment_status')
     .eq('branch_id', branchId)
     .gte('created_at', startOfDay.toISOString())
     .order('created_at', { ascending: false })
+
+  orders = preferred.data || []
+  ordersError = preferred.error || null
+
+  if (ordersError && String(ordersError.message || '').toLowerCase().includes('customer_note')) {
+    const fallback = await supabaseAdmin
+      .from('orders')
+      .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
+      .eq('branch_id', branchId)
+      .gte('created_at', startOfDay.toISOString())
+      .order('created_at', { ascending: false })
+
+    orders = (fallback.data || []).map((row) => ({ ...row, customer_note: null }))
+    ordersError = fallback.error || null
+  }
 
   if (ordersError) throw ordersError
 

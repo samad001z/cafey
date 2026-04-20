@@ -457,32 +457,27 @@ export async function getStaffOrdersForBranch(branchId) {
 
   const startOfDay = new Date()
   startOfDay.setHours(0, 0, 0, 0)
-  const safeBranchId = String(branchId || '').trim()
 
   let orders = null
   let ordersError = null
 
-  let preferredQuery = supabaseAdmin
+  const preferred = await supabaseAdmin
     .from('orders')
     .select('id, table_number, order_type, customer_note, status, created_at, total_amount, payment_status')
+    .eq('branch_id', branchId)
     .gte('created_at', startOfDay.toISOString())
     .order('created_at', { ascending: false })
-  if (safeBranchId) preferredQuery = preferredQuery.eq('branch_id', safeBranchId)
-
-  const preferred = await preferredQuery
 
   orders = preferred.data || []
   ordersError = preferred.error || null
 
   if (ordersError && String(ordersError.message || '').toLowerCase().includes('customer_note')) {
-    let fallbackQuery = supabaseAdmin
+    const fallback = await supabaseAdmin
       .from('orders')
       .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
+      .eq('branch_id', branchId)
       .gte('created_at', startOfDay.toISOString())
       .order('created_at', { ascending: false })
-    if (safeBranchId) fallbackQuery = fallbackQuery.eq('branch_id', safeBranchId)
-
-    const fallback = await fallbackQuery
 
     orders = (fallback.data || []).map((row) => ({ ...row, customer_note: null }))
     ordersError = fallback.error || null

@@ -22,9 +22,9 @@ async function fetchBranchOrders({ branchId, startIso, onlyActive = false }) {
   let query = supabase
     .from('orders')
     .select(selectWithNote)
+    .eq('branch_id', branchId)
     .order('created_at', { ascending: false })
 
-  if (branchId) query = query.eq('branch_id', branchId)
   if (startIso) query = query.gte('created_at', startIso)
   if (onlyActive) query = query.in('status', ACTIVE_ORDER_STATUSES)
 
@@ -38,9 +38,9 @@ async function fetchBranchOrders({ branchId, startIso, onlyActive = false }) {
   let fallback = supabase
     .from('orders')
     .select(selectWithoutNote)
+    .eq('branch_id', branchId)
     .order('created_at', { ascending: false })
 
-  if (branchId) fallback = fallback.eq('branch_id', branchId)
   if (startIso) fallback = fallback.gte('created_at', startIso)
   if (onlyActive) fallback = fallback.in('status', ACTIVE_ORDER_STATUSES)
 
@@ -361,9 +361,17 @@ export default function Dashboard() {
   }, [activeTab, liveOrders])
 
   const fetchLiveOrders = async () => {
+    if (!profile?.branch_id) {
+      setLiveOrders([])
+      setTodayOrders([])
+      setItemsByOrderId({})
+      setLoadingOrders(false)
+      return
+    }
+
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
-    const branchFilter = null
+    const branchFilter = profile.branch_id
 
     const [activeResp, todayResp] = await Promise.all([
       fetchBranchOrders({
@@ -382,7 +390,7 @@ export default function Dashboard() {
 
     if (shouldFallbackToLocal) {
       try {
-        const response = await fetch(`${localApiBase}/api/staff/orders`)
+        const response = await fetch(`${localApiBase}/api/staff/orders?branchId=${encodeURIComponent(profile.branch_id)}`)
         const payload = await response.json().catch(() => ({}))
         if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || 'Unable to fetch live orders')
 
@@ -453,13 +461,14 @@ export default function Dashboard() {
     }, 5000)
 
     const ordersChannel = supabase
-      .channel('staff-orders-all-branches')
+      .channel(`staff-orders-${profile?.branch_id}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'orders',
+          filter: `branch_id=eq.${profile?.branch_id}`,
         },
         () => {
           if (canceled) return

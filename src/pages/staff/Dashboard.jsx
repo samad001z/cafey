@@ -14,7 +14,6 @@ const tabs = {
 }
 
 const ACTIVE_ORDER_STATUSES = ['placed', 'confirmed', 'preparing', 'ready']
-const LIVE_ORDER_MAX_AGE_MINUTES = 60
 
 function initialsFromName(name) {
   const value = String(name || '').trim()
@@ -147,12 +146,6 @@ function todayIsoDateFromDate(now) {
   const m = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
-}
-
-function isWithinLiveOrderWindow(createdAt) {
-  if (!createdAt) return false
-  const ageMs = Date.now() - new Date(createdAt).getTime()
-  return ageMs >= 0 && ageMs <= LIVE_ORDER_MAX_AGE_MINUTES * 60 * 1000
 }
 
 export default function Dashboard() {
@@ -334,6 +327,7 @@ export default function Dashboard() {
   const fetchLiveOrders = async () => {
     if (!profile?.branch_id) {
       setLiveOrders([])
+      setTodayOrders([])
       setItemsByOrderId({})
       setLoadingOrders(false)
       return
@@ -342,14 +336,24 @@ export default function Dashboard() {
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
 
-    const { data: ordersData, error: ordersError } = await supabase
-      .from('orders')
-      .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
-      .eq('branch_id', profile.branch_id)
-      .gte('created_at', startOfDay.toISOString())
-      .order('created_at', { ascending: false })
+    const [activeResp, todayResp] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
+        .eq('branch_id', profile.branch_id)
+        .in('status', ACTIVE_ORDER_STATUSES)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('orders')
+        .select('id, table_number, order_type, status, created_at, total_amount, payment_status')
+        .eq('branch_id', profile.branch_id)
+        .gte('created_at', startOfDay.toISOString())
+        .order('created_at', { ascending: false }),
+    ])
 
-    const shouldFallbackToLocal = !!ordersError || !(ordersData || []).length
+    const activeRowsFromDb = activeResp.data || []
+    const todayRowsFromDb = todayResp.data || []
+    const shouldFallbackToLocal = !!activeResp.error || !!todayResp.error
 
     if (shouldFallbackToLocal) {
       try {
@@ -358,36 +362,31 @@ export default function Dashboard() {
         if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || 'Unable to fetch live orders')
 
         const orderRows = payload.orders || []
-        const activeRows = orderRows.filter(
-          (row) => ACTIVE_ORDER_STATUSES.includes(row.status) && isWithinLiveOrderWindow(row.created_at),
-        )
-        setTodayOrders(orderRows)
+        const activeRows = orderRows.filter((row) => ACTIVE_ORDER_STATUSES.includes(row.status))
+        const todayRows = orderRows.filter((row) => new Date(row.created_at).getTime() >= startOfDay.getTime())
+        setTodayOrders(todayRows)
         setLiveOrders(activeRows)
         setItemsByOrderId(payload.itemsByOrderId || {})
         setLoadingOrders(false)
         return
       } catch (fallbackError) {
         console.error('Live orders fetch failed:', fallbackError)
-        if (ordersError) toast.error('Unable to fetch live orders')
+        toast.error('Unable to fetch live orders')
         setLoadingOrders(false)
         return
       }
     }
 
-    const orderRows = ordersData || []
-    const activeRows = orderRows.filter(
-      (row) => ACTIVE_ORDER_STATUSES.includes(row.status) && isWithinLiveOrderWindow(row.created_at),
-    )
-    setTodayOrders(orderRows)
-    setLiveOrders(activeRows)
+    setLiveOrders(activeRowsFromDb)
+    setTodayOrders(todayRowsFromDb)
 
-    if (!orderRows.length) {
+    if (!activeRowsFromDb.length) {
       setItemsByOrderId({})
       setLoadingOrders(false)
       return
     }
 
-    const orderIds = orderRows.map((order) => order.id)
+    const orderIds = activeRowsFromDb.map((order) => order.id)
 
     const { data: orderItemsData, error: itemsError } = await supabase
       .from('order_items')

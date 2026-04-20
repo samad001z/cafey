@@ -14,6 +14,17 @@ const PENDING_PAYMENT_KEY = 'qaffeine_pending_payment_receipt'
 const MENU_CACHE_KEY = 'qaffeine_menu_cache_v1'
 const PENDING_PAYMENT_MAX_AGE_MS = 30 * 60 * 1000
 const checkoutSteps = ['Type & Table', 'Review', 'Payment']
+const categoryFolderMap = {
+  'Signature Beverages': 'signature_beverages',
+  'Hot Beverages': 'Hot Beverage',
+}
+const itemFileAliasMap = {
+  'Farm Fresh Pizza (2 Slices)': 'Farm Fresh Pizza',
+  'Saute Paneer Calzone': 'aute Paneer Calzone',
+}
+const missingLocalImageKeys = new Set([
+  'desserts|tres leches',
+])
 
 function readMenuCache() {
   try {
@@ -178,6 +189,21 @@ function slugify(text) {
     .replace(/^-+|-+$/g, '')
 }
 
+function localMenuImageUrl(name, category) {
+  const safeName = String(name || '').trim()
+  const safeCategory = normalizeCategory(category)
+  if (!safeName || !safeCategory) return ''
+
+  const missingKey = `${safeCategory.toLowerCase()}|${safeName.toLowerCase()}`
+  if (missingLocalImageKeys.has(missingKey)) return ''
+
+  const folder = categoryFolderMap[safeCategory] || safeCategory
+  const file = itemFileAliasMap[safeName] || safeName
+  const encodedFolder = encodeURIComponent(folder)
+  const encodedFile = encodeURIComponent(file)
+  return `/menu-images/${encodedFolder}/${encodedFile}.jpg`
+}
+
 function dishImageUrl(name, category, seed = '') {
   const query = [name, category, 'food', 'dish', 'restaurant']
     .filter(Boolean)
@@ -192,6 +218,7 @@ function dishImageUrl(name, category, seed = '') {
 
 function toFallbackItem(item, index) {
   const slug = slugify(`${item.category}-${item.name}`)
+  const localImage = localMenuImageUrl(item.name, item.category)
   return {
     id: `fallback-${slug}-${index}`,
     name: item.name,
@@ -199,7 +226,7 @@ function toFallbackItem(item, index) {
     price: item.price,
     category: item.category,
     is_veg: item.is_veg,
-    image_url: dishImageUrl(item.name, item.category, slug),
+    image_url: localImage || dishImageUrl(item.name, item.category, slug),
     branch_id: null,
     is_available: true,
     modifiers: {},
@@ -210,7 +237,11 @@ function toFallbackItem(item, index) {
 function mergeMenuItemsWithFallback(dbItems) {
   const fallbackItems = imageMenuCatalog.map(toFallbackItem)
   return dedupeMenuItems([
-    ...(dbItems || []).map((item) => ({ ...item, source: 'db' })),
+    ...(dbItems || []).map((item) => ({
+      ...item,
+      image_url: localMenuImageUrl(item?.name, item?.category) || item?.image_url || '',
+      source: 'db',
+    })),
     ...fallbackItems,
   ])
 }

@@ -32,26 +32,68 @@ function onlineDishImage(name, category = 'cafe food') {
   return `https://source.unsplash.com/720x520/?${encodeURIComponent(query)}`
 }
 
+const bestSellerImageMap = {
+  'Nutella Butter Latte': '/menu-images/signature_beverages/Nutella%20Butter%20Latte.jpg',
+  'Great Indian Filter Coffee': '/menu-images/signature_beverages/Great%20Indian%20Filter%20Coffee.jpg',
+  'Berry Blast': '/menu-images/signature_beverages/Berry%20Blast.jpg',
+  'Cold Brew': 'https://lifemadesweeter.com/wp-content/uploads/Easy-Cold-Brew-Coffee-Recipe-Vegan-Dairy-Free-Paleo-Healthy.jpg',
+  'Loaded Fries': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTidQTIKDHo7e2tvzPgStS_qISBE71p87c2xvNdKihRSQ&s=10',
+  'Grilled Sandwich': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPV9CJoCjGXdVpI-P1vv6Loxn4kbvmCP3JfPJBPscloA&s=10',
+}
+const menuCategoryFolderMap = {
+  'Signature Beverages': 'signature_beverages',
+  'Hot Beverages': 'Hot Beverage',
+}
+const menuItemFileAliasMap = {
+  'Farm Fresh Pizza (2 Slices)': 'Farm Fresh Pizza',
+  'Saute Paneer Calzone': 'aute Paneer Calzone',
+}
+const missingLocalMenuImageKeys = new Set([
+  'desserts|tres leches',
+])
+
+function bestSellerImage(name, category) {
+  return bestSellerImageMap[name] || onlineDishImage(name, category)
+}
+
+function normalizeItemNameKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+}
+
+function localMenuImageUrlFromNameCategory(name, category) {
+  const safeName = String(name || '').trim()
+  const safeCategory = String(category || '').trim()
+  if (!safeName || !safeCategory) return ''
+  const key = `${safeCategory.toLowerCase()}|${safeName.toLowerCase()}`
+  if (missingLocalMenuImageKeys.has(key)) return ''
+  const folder = menuCategoryFolderMap[safeCategory] || safeCategory
+  const file = menuItemFileAliasMap[safeName] || safeName
+  return `/menu-images/${encodeURIComponent(folder)}/${encodeURIComponent(file)}.jpg`
+}
+
 const defaultBestSellers = [
   {
     name: 'Nutella Butter Latte',
     desc: 'Velvety espresso with nutella cream and toasted cocoa dust.',
     rating: 4.9,
-    image: onlineDishImage('Nutella Butter Latte', 'coffee latte'),
+    image: bestSellerImage('Nutella Butter Latte', 'coffee latte'),
     isVeg: true,
   },
   {
     name: 'Great Indian Filter Coffee',
     desc: 'Aromatic decoction-style brew with balanced strength and depth.',
     rating: 4.8,
-    image: onlineDishImage('Great Indian Filter Coffee', 'filter coffee'),
+    image: bestSellerImage('Great Indian Filter Coffee', 'filter coffee'),
     isVeg: true,
   },
   {
     name: 'Berry Blast',
     desc: 'Bright berry-forward cooler with subtle citrus and mint finish.',
     rating: 4.7,
-    image: onlineDishImage('Berry Blast', 'fruit mocktail'),
+    image: bestSellerImage('Berry Blast', 'fruit mocktail'),
     isVeg: true,
   },
   {
@@ -81,18 +123,28 @@ const defaultStoryBlocks = [
   {
     title: 'True to its origin',
     text: 'Grown in South India at an altitude of 4500 ft, Qaffeine beans are harvested with care and roasted to preserve authentic character in every sip.',
-    image: 'https://picsum.photos/seed/qaf-farm/920/640',
+    image: '/menu-images/landing_page/True%20to%20its%20origin.jpg',
   },
   {
     title: 'Many takes, single blend',
     text: 'From classic filter coffee to experimental lattes and shakes, we roast and brew one quality-forward blend remembered by everyone who visits.',
-    image: 'https://picsum.photos/seed/qaf-roastery/920/640',
+    image: '/menu-images/landing_page/Many takes, single blend.jpg',
   },
   {
     title: 'Taste the Qaffeine Difference',
     text: 'From first step in till the final sip, each cup is designed to be crisp, bright, and energizing with a profile that feels distinctly Qaffeine.',
-    image: 'https://picsum.photos/seed/qaf-cup/920/640',
+    image: '/menu-images/landing_page/Taste%20the%20qaffeine%20difference.jpg',
   },
+]
+const landingStoryImageByTitle = {
+  'true to its origin': '/menu-images/landing_page/True%20to%20its%20origin.jpg',
+  'many takes, single blend': '/menu-images/landing_page/Many takes, single blend.jpg',
+  'taste the qaffeine difference': '/menu-images/landing_page/Taste%20the%20qaffeine%20difference.jpg',
+}
+const landingStoryImagesByIndex = [
+  '/menu-images/landing_page/True%20to%20its%20origin.jpg',
+  '/menu-images/landing_page/Many takes, single blend.jpg',
+  '/menu-images/landing_page/Taste%20the%20qaffeine%20difference.jpg',
 ]
 
 const fallbackOutlets = [
@@ -154,10 +206,14 @@ const navItems = [
   { label: 'Order Details', href: '/order-details' },
 ]
 
-const instagramImages = Array.from({ length: 6 }).map((_, index) => ({
-  id: index,
-  src: `https://picsum.photos/seed/qaf-insta-${index + 1}/360/360`,
-}))
+const instagramImages = [
+  { id: 1, src: 'https://www.qaffeine.com/Theme/cpartner/assets/img/gallery/galller-1.jpg' },
+  { id: 2, src: 'https://www.qaffeine.com/Theme/cpartner/assets/img/gallery/gallery-2.jpg' },
+  { id: 3, src: 'https://www.qaffeine.com/Theme/cpartner/assets/img/gallery/galler-3.jpg' },
+  { id: 4, src: 'https://www.qaffeine.com/Theme/cpartner/assets/img/gallery/gallery-4.jpg' },
+  { id: 5, src: 'https://www.qaffeine.com/Theme/cpartner/assets/img/gallery/galler-5.jpg' },
+  { id: 6, src: 'https://www.qaffeine.com/Theme/cpartner/assets/img/gallery/galler-6.jpg' },
+]
 
 const fallbackReviews = [
   {
@@ -229,9 +285,6 @@ const defaultHero = {
   headline: ['Single Origin.', 'Well Grounded.', 'Quintessentially, Coffee.'],
   subtext:
     'Grown at 4500 ft in South India and served across 7 outlets in Hyderabad. At Qaffeine, every cup brings together craft roasting, thoughtful food pairing, and a bright cafe experience.',
-  special_title: "Today's Special",
-  special_item: 'Nutella Butter Latte',
-  special_note: 'Signature house favorite.',
 }
 
 function initialsFromName(name, email) {
@@ -306,6 +359,7 @@ export default function Home() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [branches, setBranches] = useState([])
+  const [menuImageByName, setMenuImageByName] = useState({})
   const [customerReviews, setCustomerReviews] = useState(fallbackReviews)
   const [websiteContent, setWebsiteContent] = useState({})
 
@@ -373,6 +427,40 @@ export default function Home() {
     }
 
     fetchBranches()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
+    const fetchMenuImages = async () => {
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('name, category, image_url')
+
+      if (!active || error || !data?.length) return
+
+      const next = {}
+      for (const row of data) {
+        const key = normalizeItemNameKey(row?.name)
+        const image = String(row?.image_url || '').trim()
+        const derivedLocal = localMenuImageUrlFromNameCategory(row?.name, row?.category)
+        if (!key || !image) continue
+        next[key] = derivedLocal || image
+      }
+      for (const row of data) {
+        const key = normalizeItemNameKey(row?.name)
+        if (!key || next[key]) continue
+        const derivedLocal = localMenuImageUrlFromNameCategory(row?.name, row?.category)
+        if (derivedLocal) next[key] = derivedLocal
+      }
+      setMenuImageByName(next)
+    }
+
+    fetchMenuImages()
 
     return () => {
       active = false
@@ -470,9 +558,6 @@ export default function Home() {
       pill: String(hero.pill || defaultHero.pill),
       headline: Array.isArray(hero.headline) && hero.headline.length ? hero.headline.slice(0, 3).map((line) => String(line)) : defaultHero.headline,
       subtext: String(hero.subtext || defaultHero.subtext),
-      special_title: String(hero.special_title || defaultHero.special_title),
-      special_item: String(hero.special_item || defaultHero.special_item),
-      special_note: String(hero.special_note || defaultHero.special_note),
     }
   }, [websiteContent.home_hero])
 
@@ -483,16 +568,32 @@ export default function Home() {
   }, [websiteContent.home_categories])
 
   const bestSellers = useMemo(() => {
+    const imageFor = (name, fallbackImage, category = 'cafe food') => {
+      const fromMenu = menuImageByName[normalizeItemNameKey(name)]
+      if (fromMenu) return fromMenu
+      const preferred = bestSellerImage(name, category)
+      return String(preferred || fallbackImage || onlineDishImage(name, category))
+    }
+
     const rows = websiteContent.home_best_sellers
-    if (!Array.isArray(rows) || !rows.length) return defaultBestSellers
+    if (!Array.isArray(rows) || !rows.length) {
+      return defaultBestSellers.map((item) => ({
+        ...item,
+        image: imageFor(item.name, item.image),
+      }))
+    }
+
     return rows.map((row, index) => ({
-      name: String(row?.name || `Item ${index + 1}`),
+      name: String(row?.name || `Item ${index + 1}`).trim(),
       desc: String(row?.desc || 'Qaffeine signature selection.'),
       rating: Number(row?.rating || 4.8),
-      image: String(row?.image || onlineDishImage(String(row?.name || `Item ${index + 1}`))),
+      image: imageFor(
+        String(row?.name || `Item ${index + 1}`),
+        row?.image,
+      ),
       isVeg: row?.isVeg !== false,
     }))
-  }, [websiteContent.home_best_sellers])
+  }, [menuImageByName, websiteContent.home_best_sellers])
 
   const whyCards = useMemo(() => {
     const rows = websiteContent.home_why_cards
@@ -509,7 +610,9 @@ export default function Home() {
     return rows.map((row, index) => ({
       title: String(row?.title || `Story ${index + 1}`),
       text: String(row?.text || 'Qaffeine craft story.'),
-      image: String(row?.image || `https://picsum.photos/seed/qaf-story-${index + 1}/920/640`),
+      image: landingStoryImageByTitle[String(row?.title || '').trim().toLowerCase()]
+        || landingStoryImagesByIndex[index]
+        || String(row?.image || `https://picsum.photos/seed/qaf-story-${index + 1}/920/640`),
     }))
   }, [websiteContent.home_story_blocks])
 
@@ -714,11 +817,6 @@ export default function Home() {
               src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80"
               alt="Qaffeine coffee"
             />
-            <aside className="qf-float-card">
-              <p>{heroContent.special_title}</p>
-              <h3>{heroContent.special_item}</h3>
-              <span>{heroContent.special_note}</span>
-            </aside>
           </div>
         </section>
 

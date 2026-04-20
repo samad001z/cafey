@@ -1873,6 +1873,16 @@ export default function MenuOrder() {
                     </label>
                   ) : null}
 
+                  <label>
+                    Add a note for your order (optional)
+                    <textarea
+                      value={customerNote}
+                      onChange={(event) => setCustomerNote(event.target.value)}
+                      placeholder="e.g. Less sugar, no ice, extra hot"
+                      rows={3}
+                    />
+                  </label>
+
                   <div className="mo-step-actions">
                     <button
                       type="button"
@@ -1889,15 +1899,9 @@ export default function MenuOrder() {
               {checkoutStep === 2 ? (
                 <div className="mo-step-content">
                   <h3>Review Order Summary</h3>
-                  <label>
-                    Add a note for your order (optional)
-                    <textarea
-                      value={customerNote}
-                      onChange={(event) => setCustomerNote(event.target.value)}
-                      placeholder="e.g. Less sugar, no ice, extra hot"
-                      rows={3}
-                    />
-                  </label>
+                  <p className="muted">
+                    Note: {customerNote.trim() || 'No special note added.'}
+                  </p>
                   <div className="mo-review-list">
                     {cartItems.map((item) => (
                       <div key={item.cartKey}>

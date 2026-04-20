@@ -8,11 +8,6 @@ export default async function handler(req, res) {
 
   try {
     const branchId = String(req.query?.branchId || '').trim()
-    if (!branchId) {
-      sendJson(res, 400, { ok: false, error: 'branchId is required' })
-      return
-    }
-
     const payload = await getStaffOrdersForBranch(branchId)
     sendJson(res, 200, { ok: true, ...payload })
   } catch (error) {

@@ -15,6 +15,42 @@ const tabs = {
 
 const ACTIVE_ORDER_STATUSES = ['placed', 'confirmed', 'preparing', 'ready']
 
+async function fetchBranchOrders({ branchId, startIso, onlyActive = false }) {
+  const selectWithNote = 'id, table_number, order_type, customer_note, status, created_at, total_amount, payment_status'
+  const selectWithoutNote = 'id, table_number, order_type, status, created_at, total_amount, payment_status'
+
+  let query = supabase
+    .from('orders')
+    .select(selectWithNote)
+    .order('created_at', { ascending: false })
+
+  if (branchId) query = query.eq('branch_id', branchId)
+  if (startIso) query = query.gte('created_at', startIso)
+  if (onlyActive) query = query.in('status', ACTIVE_ORDER_STATUSES)
+
+  let { data, error } = await query
+  if (!error) return { data: data || [], error: null }
+
+  if (!String(error?.message || '').toLowerCase().includes('customer_note')) {
+    return { data: data || [], error }
+  }
+
+  let fallback = supabase
+    .from('orders')
+    .select(selectWithoutNote)
+    .order('created_at', { ascending: false })
+
+  if (branchId) fallback = fallback.eq('branch_id', branchId)
+  if (startIso) fallback = fallback.gte('created_at', startIso)
+  if (onlyActive) fallback = fallback.in('status', ACTIVE_ORDER_STATUSES)
+
+  const fallbackResp = await fallback
+  return {
+    data: (fallbackResp.data || []).map((row) => ({ ...row, customer_note: null })),
+    error: fallbackResp.error || null,
+  }
+}
+
 function initialsFromName(name) {
   const value = String(name || '').trim()
   if (!value) return 'ST'
@@ -325,30 +361,19 @@ export default function Dashboard() {
   }, [activeTab, liveOrders])
 
   const fetchLiveOrders = async () => {
-    if (!profile?.branch_id) {
-      setLiveOrders([])
-      setTodayOrders([])
-      setItemsByOrderId({})
-      setLoadingOrders(false)
-      return
-    }
-
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
+    const branchFilter = null
 
     const [activeResp, todayResp] = await Promise.all([
-      supabase
-        .from('orders')
-        .select('id, table_number, order_type, customer_note, status, created_at, total_amount, payment_status')
-        .eq('branch_id', profile.branch_id)
-        .in('status', ACTIVE_ORDER_STATUSES)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('orders')
-        .select('id, table_number, order_type, customer_note, status, created_at, total_amount, payment_status')
-        .eq('branch_id', profile.branch_id)
-        .gte('created_at', startOfDay.toISOString())
-        .order('created_at', { ascending: false }),
+      fetchBranchOrders({
+        branchId: branchFilter,
+        onlyActive: true,
+      }),
+      fetchBranchOrders({
+        branchId: branchFilter,
+        startIso: startOfDay.toISOString(),
+      }),
     ])
 
     const activeRowsFromDb = activeResp.data || []
@@ -357,7 +382,7 @@ export default function Dashboard() {
 
     if (shouldFallbackToLocal) {
       try {
-        const response = await fetch(`${localApiBase}/api/staff/orders?branchId=${encodeURIComponent(profile.branch_id)}`)
+        const response = await fetch(`${localApiBase}/api/staff/orders`)
         const payload = await response.json().catch(() => ({}))
         if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || 'Unable to fetch live orders')
 
@@ -415,6 +440,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     let canceled = false
+    let refreshDelayId = null
 
     const run = async () => {
       await fetchLiveOrders()
@@ -426,9 +452,32 @@ export default function Dashboard() {
       if (!canceled) fetchLiveOrders()
     }, 5000)
 
+    const ordersChannel = supabase
+      .channel('staff-orders-all-branches')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
+        () => {
+          if (canceled) return
+          fetchLiveOrders()
+          // order_items insert can follow orders insert; refetch once more shortly after.
+          if (refreshDelayId) clearTimeout(refreshDelayId)
+          refreshDelayId = setTimeout(() => {
+            if (!canceled) fetchLiveOrders()
+          }, 1200)
+        },
+      )
+      .subscribe()
+
     return () => {
       canceled = true
       clearInterval(id)
+      if (refreshDelayId) clearTimeout(refreshDelayId)
+      supabase.removeChannel(ordersChannel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.branch_id])

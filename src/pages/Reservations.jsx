@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import DatePicker from 'react-datepicker'
-import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { Check, Clock3, Users } from 'lucide-react'
+import { CalendarDays, Check, Clock3, MapPin, Sparkles, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -122,17 +121,20 @@ export default function Reservations() {
     }
   }, [selectedBranch, selectedDateKey, selectedSlot])
 
-  useEffect(() => {
-    if (!profile && !user) return
-    if (!name) setName(profile?.full_name || user?.user_metadata?.full_name || '')
-    if (!phone) setPhone(profile?.phone || user?.phone || '')
-  }, [name, phone, profile, user])
-
   const selectedBranchObj = branches.find((branch) => branch.id === selectedBranch)
+  const resolvedName = name || profile?.full_name || user?.user_metadata?.full_name || ''
+  const resolvedPhone = phone || profile?.phone || user?.phone || ''
+  const selectedDateLabel = selectedDate.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })
+  const selectedSlotBookings = selectedSlot ? (slotCounts[selectedSlot] || 0) : 0
+  const selectedSlotRemaining = selectedSlot ? Math.max(0, FULL_SLOT_LIMIT - selectedSlotBookings) : FULL_SLOT_LIMIT
+  const slotsAvailableCount = useMemo(
+    () => allSlots.filter((slot) => (slotCounts[slot] || 0) < FULL_SLOT_LIMIT).length,
+    [slotCounts],
+  )
 
   const canContinueStep1 = !!selectedBranch
   const canContinueStep2 = !!selectedDate && !!selectedSlot && partySize >= 1 && partySize <= 12
-  const canContinueStep3 = name.trim().length > 1 && phone.trim().length >= 8
+  const canContinueStep3 = resolvedName.trim().length > 1 && resolvedPhone.trim().length >= 8
 
   const submitReservation = async () => {
     if (!canContinueStep3) return
@@ -145,8 +147,8 @@ export default function Reservations() {
       date: selectedDateKey,
       time_slot: selectedSlot,
       party_size: partySize,
-      customer_name: name.trim(),
-      phone: phone.trim(),
+      customer_name: resolvedName.trim(),
+      phone: resolvedPhone.trim(),
       special_requests: specialRequests.trim() || null,
       status: 'pending',
     }
@@ -178,14 +180,34 @@ export default function Reservations() {
     <main className="reservations-page">
       <section className="res-shell">
         <header className="res-head">
+          <p className="res-chip"><Sparkles size={14} /> Table Concierge</p>
           <h1>Reserve Your Table</h1>
-          <p>Book your Qaffeine experience in 4 quick steps.</p>
+          <p>Modern table booking with live slot availability and instant confirmation.</p>
           <div className="res-steps">
             {[1, 2, 3, 4].map((value) => (
               <span key={value} className={step >= value ? 'active' : ''}>Step {value}</span>
             ))}
           </div>
         </header>
+
+        <section className="res-context-grid" aria-label="Reservation Snapshot">
+          <article>
+            <p>Outlet</p>
+            <strong>{selectedBranchObj?.name || 'Select outlet'}</strong>
+          </article>
+          <article>
+            <p>Date</p>
+            <strong>{selectedDateLabel}</strong>
+          </article>
+          <article>
+            <p>Guests</p>
+            <strong>{partySize} {partySize === 1 ? 'person' : 'people'}</strong>
+          </article>
+          <article>
+            <p>Availability</p>
+            <strong>{slotsAvailableCount} slots open</strong>
+          </article>
+        </section>
 
         {step === 1 ? (
           <section className="res-step">
@@ -202,7 +224,7 @@ export default function Reservations() {
                   >
                     <div>
                       <h3>{branch.name}</h3>
-                      <p>{branch.address || 'Hyderabad'}</p>
+                      <p><MapPin size={13} /> {branch.address || 'Hyderabad'}</p>
                     </div>
                     {active ? <Check size={18} /> : null}
                   </button>
@@ -238,16 +260,18 @@ export default function Reservations() {
                   {allSlots.map((slot) => {
                     const isFull = (slotCounts[slot] || 0) >= FULL_SLOT_LIMIT
                     const active = slot === selectedSlot
+                    const remaining = Math.max(0, FULL_SLOT_LIMIT - (slotCounts[slot] || 0))
                     return (
                       <button
                         key={slot}
                         type="button"
-                        className={`${active ? 'active' : ''}`}
+                        className={`${active ? 'active' : ''} ${isFull ? 'is-full' : ''}`}
                         disabled={isFull}
                         onClick={() => setSelectedSlot(slot)}
                         title={isFull ? 'Slot full' : slot}
                       >
-                        {slot}
+                        <span>{slot}</span>
+                        <small>{isFull ? 'Full' : `${remaining} left`}</small>
                       </button>
                     )
                   })}
@@ -264,6 +288,13 @@ export default function Reservations() {
                     )
                   })}
                 </select>
+
+                {selectedSlot ? (
+                  <p className="slot-meta">
+                    <CalendarDays size={14} />
+                    {selectedSlotRemaining} / {FULL_SLOT_LIMIT} seats still available at {selectedSlot}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -282,11 +313,11 @@ export default function Reservations() {
             <div className="res-form">
               <label>
                 Name
-                <input type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your full name" />
+                <input type="text" value={resolvedName} onChange={(event) => setName(event.target.value)} placeholder="Your full name" />
               </label>
               <label>
                 Phone
-                <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+91 9876543210" />
+                <input type="tel" value={resolvedPhone} onChange={(event) => setPhone(event.target.value)} placeholder="+91 9876543210" />
               </label>
               <label>
                 Special Requests
@@ -309,11 +340,7 @@ export default function Reservations() {
         ) : null}
 
         {step === 4 ? (
-          <motion.section
-            className="res-step res-success"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <section className="res-step res-success">
             <div className="check">✓</div>
             <h2>Reservation Confirmed</h2>
             <p>Your table has been reserved successfully.</p>
@@ -324,8 +351,9 @@ export default function Reservations() {
               <p><strong>Time:</strong> {successReservation?.time_slot}</p>
               <p><strong>Party Size:</strong> {successReservation?.party_size}</p>
               <p><strong>Reference:</strong> {successReservation?.ref_code || 'QF-XXXXXX'}</p>
+              <p><strong>Status:</strong> Pending Confirmation</p>
             </div>
-          </motion.section>
+          </section>
         ) : null}
       </section>
     </main>

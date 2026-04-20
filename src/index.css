@@ -37,35 +37,45 @@ a {
 }
 
 .landing {
-  width: min(1120px, 92vw);
-  margin: 3.5rem auto;
+  width: min(1180px, 93vw);
+  margin: 2.6rem auto 3.2rem;
   display: grid;
-  gap: 1.2rem;
+  gap: 1rem;
   grid-template-columns: 1.35fr 1fr;
 }
 
 .hero-panel,
 .branch-panel,
+.proof-panel,
 .auth-page {
   border: 1px solid var(--line);
-  border-radius: 24px;
-  background: var(--panel);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--soft-shadow);
+  border-radius: 22px;
+  background: rgba(255, 252, 248, 0.74);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 46px rgba(95, 52, 31, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .hero-panel {
-  padding: 2.1rem;
+  padding: 1.9rem;
   display: grid;
-  gap: 1.3rem;
+  gap: 1.15rem;
 }
 
 .chip {
   margin: 0;
+  width: fit-content;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.65rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: 0.73rem;
-  color: var(--brand-strong);
+  color: #85411a;
+  border: 1px solid rgba(173, 95, 45, 0.34);
+  border-radius: 999px;
+  background: rgba(173, 95, 45, 0.1);
   font-weight: 700;
 }
 
@@ -84,8 +94,8 @@ h1 {
 .lead {
   margin-top: 0.9rem;
   color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.64;
   max-width: 64ch;
 }
 
@@ -105,9 +115,10 @@ h1 {
   font-weight: 700;
   min-height: 42px;
   padding: 0.3rem 1rem;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.82);
   color: #2a1b12;
   cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .action.primary {
@@ -116,8 +127,52 @@ h1 {
   border-color: transparent;
 }
 
+.action:hover {
+  transform: translateY(-1px);
+  border-color: rgba(173, 95, 45, 0.44);
+  box-shadow: 0 10px 18px rgba(95, 52, 31, 0.12);
+}
+
+.hero-highlights {
+  margin-top: 0.2rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.hero-highlights article {
+  border: 1px solid rgba(173, 95, 45, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.66rem 0.75rem;
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  color: #8e4a20;
+}
+
+.hero-highlights article div {
+  display: grid;
+  gap: 0.14rem;
+}
+
+.hero-highlights strong,
+.hero-highlights p {
+  margin: 0;
+}
+
+.hero-highlights strong {
+  color: #2f1d12;
+  font-size: 0.9rem;
+}
+
+.hero-highlights p {
+  color: #765741;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .branch-panel {
-  padding: 1.5rem;
+  padding: 1.3rem;
 }
 
 .panel-header {
@@ -125,6 +180,12 @@ h1 {
   align-items: center;
   gap: 0.45rem;
   margin-bottom: 0.9rem;
+}
+
+.branch-intro {
+  margin: -0.1rem 0 0.8rem;
+  color: #7d5c46;
+  font-size: 0.88rem;
 }
 
 .branch-list {
@@ -142,7 +203,69 @@ h1 {
   padding: 0.67rem 0.76rem;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.67);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.branch-stats {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.branch-stats article {
+  border: 1px solid rgba(173, 95, 45, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.55rem 0.62rem;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.branch-stats article p,
+.branch-stats article strong {
+  margin: 0;
+}
+
+.branch-stats article p {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #906648;
+  font-weight: 700;
+}
+
+.branch-stats article strong {
+  color: #2f1d12;
+  font-size: 0.92rem;
+}
+
+.proof-panel {
+  grid-column: 1 / -1;
+  padding: 1.15rem;
+  display: grid;
+  gap: 0.58rem;
+  border-color: rgba(173, 95, 45, 0.23);
+  background:
+    radial-gradient(520px 260px at 5% 0%, rgba(173, 95, 45, 0.14), transparent 60%),
+    rgba(255, 252, 248, 0.77);
+}
+
+.proof-panel h2,
+.proof-panel p {
+  margin: 0;
+}
+
+.proof-panel p {
+  color: #775742;
+  max-width: 74ch;
+}
+
+.proof-panel div {
+  margin-top: 0.15rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .auth-page {
@@ -178,13 +301,18 @@ h1 {
 @media (max-width: 900px) {
   .landing {
     grid-template-columns: 1fr;
-    margin-top: 2rem;
+    margin-top: 1.5rem;
   }
 
   .hero-panel,
   .branch-panel,
+  .proof-panel,
   .auth-page {
     border-radius: 18px;
+  }
+
+  .branch-stats {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -47,6 +47,20 @@ function durationBetween(start, end) {
   return `${hours}h ${minutes}m`
 }
 
+function durationMinutesBetween(start, end) {
+  if (!start || !end) return 0
+  const ms = new Date(end).getTime() - new Date(start).getTime()
+  if (ms <= 0) return 0
+  return Math.floor(ms / 60000)
+}
+
+function formatDurationFromMinutes(totalMinutes) {
+  const mins = Math.max(0, Number(totalMinutes || 0))
+  const hours = Math.floor(mins / 60)
+  const minutes = mins % 60
+  return `${hours}h ${minutes}m`
+}
+
 function minutesAgo(createdAt, now) {
   const diffMs = now.getTime() - new Date(createdAt).getTime()
   const mins = Math.max(0, Math.floor(diffMs / 60000))
@@ -125,6 +139,10 @@ function statusAction(orderStatus) {
 
 function todayIsoDate() {
   const now = new Date()
+  return todayIsoDateFromDate(now)
+}
+
+function todayIsoDateFromDate(now) {
   const y = now.getFullYear()
   const m = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')
@@ -751,6 +769,57 @@ export default function Dashboard() {
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   }, [itemsByOrderId, kdsOrders])
 
+  const attendanceSnapshot = useMemo(() => {
+    const last7Start = new Date(now)
+    last7Start.setHours(0, 0, 0, 0)
+    last7Start.setDate(last7Start.getDate() - 6)
+    const last7StartKey = todayIsoDateFromDate(last7Start)
+    const todayKey = todayIsoDate()
+
+    const byDate = new Map()
+    for (const row of attendanceHistory) {
+      if (!row?.date) continue
+      byDate.set(row.date, row)
+    }
+
+    if (todayAttendance?.date) {
+      byDate.set(todayAttendance.date, todayAttendance)
+    }
+
+    let weekWorkedMinutes = 0
+    let weekShiftDays = 0
+    let weekLateDays = 0
+
+    for (const [date, row] of byDate.entries()) {
+      if (date < last7StartKey || date > todayKey) continue
+      if (row?.checked_in_at) weekShiftDays += 1
+      if (row?.status === 'late') weekLateDays += 1
+
+      if (!row?.checked_in_at) continue
+      const end = row.checked_out_at || (date === todayKey ? now.toISOString() : null)
+      weekWorkedMinutes += durationMinutesBetween(row.checked_in_at, end)
+    }
+
+    const todayRow = byDate.get(todayKey) || todayAttendance
+    const todayWorkedMinutes = todayRow?.checked_in_at
+      ? durationMinutesBetween(todayRow.checked_in_at, todayRow.checked_out_at || now.toISOString())
+      : 0
+
+    const activeShift = Boolean(todayRow?.checked_in_at && !todayRow?.checked_out_at)
+    const avgShiftMinutes = weekShiftDays ? Math.floor(weekWorkedMinutes / weekShiftDays) : 0
+    const targetMinutes = 8 * 60
+
+    return {
+      todayWorkedMinutes,
+      weekWorkedMinutes,
+      weekShiftDays,
+      weekLateDays,
+      avgShiftMinutes,
+      activeShift,
+      productivityPct: Math.min(100, Math.round((todayWorkedMinutes / targetMinutes) * 100)),
+    }
+  }, [attendanceHistory, now, todayAttendance])
+
   return (
     <main className="staff-dashboard-page">
       <section className="staff-dashboard-shell">
@@ -804,12 +873,54 @@ export default function Dashboard() {
         <section className="staff-content">
           {activeTab === tabs.CHECK ? (
             <div className="checkin-panel">
-              <h1>Check In / Out</h1>
+              <div className="checkin-head">
+                <h1>Shift Console</h1>
+                <p>Track attendance, worked hours, and shift performance in real time.</p>
+              </div>
+
+              <section className="checkin-metrics" aria-label="Shift Metrics">
+                <article>
+                  <p>Today Worked</p>
+                  <strong>{formatDurationFromMinutes(attendanceSnapshot.todayWorkedMinutes)}</strong>
+                </article>
+                <article>
+                  <p>Last 7 Days</p>
+                  <strong>{formatDurationFromMinutes(attendanceSnapshot.weekWorkedMinutes)}</strong>
+                </article>
+                <article>
+                  <p>Avg Shift Length</p>
+                  <strong>{formatDurationFromMinutes(attendanceSnapshot.avgShiftMinutes)}</strong>
+                </article>
+                <article>
+                  <p>Late Marks (7d)</p>
+                  <strong>{attendanceSnapshot.weekLateDays}</strong>
+                </article>
+              </section>
+
               <div className="checkin-card">
                 <Clock3 size={20} />
                 <h2>{formatClock(now)}</h2>
                 <p>{now.toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
                 <p>{branchName || 'No branch assigned'}</p>
+                <span className={`checkin-status-pill ${attendanceSnapshot.activeShift ? 'active' : 'idle'}`}>
+                  {attendanceSnapshot.activeShift ? 'On Shift' : 'Not Checked In'}
+                </span>
+
+                <div className="checkin-timeline">
+                  <p><span>Check In</span><strong>{formatTime(todayAttendance?.checked_in_at)}</strong></p>
+                  <p><span>Check Out</span><strong>{formatTime(todayAttendance?.checked_out_at)}</strong></p>
+                  <p><span>Worked</span><strong>{formatDurationFromMinutes(attendanceSnapshot.todayWorkedMinutes)}</strong></p>
+                </div>
+
+                <div className="checkin-progress-wrap" aria-label="Shift completion">
+                  <div className="checkin-progress-head">
+                    <span>Shift Progress</span>
+                    <strong>{attendanceSnapshot.productivityPct}% of 8h target</strong>
+                  </div>
+                  <div className="checkin-progress-bar">
+                    <i style={{ width: `${attendanceSnapshot.productivityPct}%` }} />
+                  </div>
+                </div>
 
                 {!todayAttendance?.checked_in_at ? (
                   <button type="button" className="btn check-in" disabled={attendanceBusy} onClick={handleCheckIn}>

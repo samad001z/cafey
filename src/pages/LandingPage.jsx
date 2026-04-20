@@ -1,5 +1,4 @@
-import { motion } from 'framer-motion'
-import { Coffee, MapPin, ShieldCheck, UserRound } from 'lucide-react'
+import { Coffee, MapPin, ShieldCheck, Sparkles, Timer, TrendingUp, UserRound, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const branches = [
@@ -16,25 +15,16 @@ export default function LandingPage() {
   return (
     <main className="landing">
       <section className="hero-panel">
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <p className="chip">Cafe + Kitchen + Bistro</p>
+        <div>
+          <p className="chip"><Sparkles size={13} /> Cafe + Kitchen + Bistro</p>
           <h1>Qaffeine Hyderabad</h1>
           <p className="lead">
-            A multi-branch cafe experience with table ordering, quick takeaway,
-            and role-based operations for staff and admins.
+            A modern cafe operating platform for customer ordering, staff execution,
+            and admin oversight across every outlet.
           </p>
-        </motion.div>
+        </div>
 
-        <motion.div
-          className="hero-actions"
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.08 }}
-        >
+        <div className="hero-actions">
           <Link className="action primary" to="/login">
             <UserRound size={16} /> Customer Access
           </Link>
@@ -44,7 +34,31 @@ export default function LandingPage() {
           <Link className="action" to="/admin/login">
             <ShieldCheck size={16} /> Admin Access
           </Link>
-        </motion.div>
+        </div>
+
+        <div className="hero-highlights">
+          <article>
+            <Timer size={16} />
+            <div>
+              <strong>Under 60s Ordering</strong>
+              <p>Fast browse-to-checkout flow for walk-ins and table guests.</p>
+            </div>
+          </article>
+          <article>
+            <TrendingUp size={16} />
+            <div>
+              <strong>Real-time Ops Visibility</strong>
+              <p>Kitchen, order status, and shift data available live.</p>
+            </div>
+          </article>
+          <article>
+            <Zap size={16} />
+            <div>
+              <strong>Production-ready Workflows</strong>
+              <p>Built for daily branch operations, not just demo screens.</p>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section className="branch-panel">
@@ -52,18 +66,34 @@ export default function LandingPage() {
           <Coffee size={18} />
           <h2>Live Branch Network</h2>
         </div>
+        <p className="branch-intro">Currently operating across major Hyderabad hotspots.</p>
         <ul className="branch-list">
-          {branches.map((branch, index) => (
-            <motion.li
-              key={branch}
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.05 * index }}
-            >
+          {branches.map((branch) => (
+            <li key={branch}>
               <MapPin size={14} /> {branch}
-            </motion.li>
+            </li>
           ))}
         </ul>
+
+        <div className="branch-stats">
+          <article>
+            <p>Outlets</p>
+            <strong>{branches.length}</strong>
+          </article>
+          <article>
+            <p>Core Modules</p>
+            <strong>Customer, Staff, Admin</strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="proof-panel">
+        <h2>Built For Real Cafe Operations</h2>
+        <p>From reservations to KDS and shift attendance, every flow is designed for speed and reliability.</p>
+        <div>
+          <Link className="action primary" to="/login">Launch Customer Journey</Link>
+          <Link className="action" to="/staff/login">Open Staff Workspace</Link>
+        </div>
       </section>
     </main>
   )

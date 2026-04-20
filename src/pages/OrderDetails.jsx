@@ -36,6 +36,13 @@ function formatOrderType(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase())
 }
 
+function formatTableLabel(order) {
+  if (order?.order_type === 'table_order' || order?.order_type === 'dine_in') {
+    return order?.table_number ? `Table ${order.table_number}` : 'Table Pending'
+  }
+  return 'Takeaway'
+}
+
 export default function OrderDetails() {
   const { user } = useAuth()
 
@@ -48,11 +55,41 @@ export default function OrderDetails() {
   const [reviewedOrderIds, setReviewedOrderIds] = useState(new Set())
   const [reviewModalOrder, setReviewModalOrder] = useState(null)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [itemsByOrderId, setItemsByOrderId] = useState({})
   const [reviewDraft, setReviewDraft] = useState({
     ratingFood: 5,
     ratingService: 5,
     reviewText: '',
   })
+
+  const hydrateOrderItems = async (orders = []) => {
+    const orderIds = Array.from(new Set((orders || []).map((row) => row.id).filter(Boolean)))
+    if (!orderIds.length) {
+      setItemsByOrderId({})
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('order_items')
+      .select('order_id, quantity, menu_items(name)')
+      .in('order_id', orderIds)
+
+    if (error) {
+      console.error('Failed to load order item names:', error)
+      return
+    }
+
+    const grouped = {}
+    for (const row of data || []) {
+      if (!grouped[row.order_id]) grouped[row.order_id] = []
+      grouped[row.order_id].push({
+        quantity: Number(row.quantity || 1),
+        name: row.menu_items?.name || 'Custom item',
+      })
+    }
+
+    setItemsByOrderId(grouped)
+  }
 
   useEffect(() => {
     let active = true
@@ -78,7 +115,7 @@ export default function OrderDetails() {
     const fetchMine = async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, status, created_at, total_amount, order_type, payment_status, branch_id')
+        .select('id, status, created_at, total_amount, order_type, payment_status, branch_id, table_number')
         .eq('customer_id', user.id)
         .order('created_at', { ascending: false })
         .limit(25)
@@ -93,6 +130,7 @@ export default function OrderDetails() {
       const rows = data || []
       setActiveOrders(rows.filter((row) => !['completed', 'cancelled'].includes(row.status)))
       setHistoryOrders(rows)
+      hydrateOrderItems(rows)
 
       if (!trackingOrder && rows.length) {
         const firstActive = rows.find((row) => !['completed', 'cancelled'].includes(row.status))
@@ -214,7 +252,7 @@ export default function OrderDetails() {
     if (isOrderId) {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, status, created_at, total_amount, order_type, payment_status, branch_id')
+        .select('id, status, created_at, total_amount, order_type, payment_status, branch_id, table_number')
         .eq('id', value)
         .limit(1)
 
@@ -248,7 +286,7 @@ export default function OrderDetails() {
 
       const { data: orderRows, error: orderError } = await supabase
         .from('orders')
-        .select('id, status, created_at, total_amount, order_type, payment_status, branch_id')
+        .select('id, status, created_at, total_amount, order_type, payment_status, branch_id, table_number')
         .in('customer_id', ids)
         .order('created_at', { ascending: false })
 
@@ -269,10 +307,43 @@ export default function OrderDetails() {
     }
 
     setTrackingOrder(orders[0])
+    hydrateOrderItems(orders)
     toast.success(`Tracking order ${orders[0].id}`)
   }
 
   const currentStage = statusIndex(trackingOrder?.status || 'placed')
+
+  const kitchenQueue = useMemo(() => {
+    const statusPriority = {
+      preparing: 0,
+      confirmed: 1,
+      ready: 2,
+      placed: 3,
+    }
+
+    return [...activeOrders]
+      .sort((a, b) => {
+        const aPriority = statusPriority[a.status] ?? 99
+        const bPriority = statusPriority[b.status] ?? 99
+        if (aPriority !== bPriority) return aPriority - bPriority
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      })
+      .slice(0, 12)
+  }, [activeOrders])
+
+  const summarizeOrderItems = (orderId) => {
+    const items = itemsByOrderId[orderId] || []
+    if (!items.length) return 'Item details syncing...'
+    const visible = items.slice(0, 2).map((item) => `${item.quantity}x ${item.name}`)
+    if (items.length > 2) return `${visible.join(', ')} +${items.length - 2} more`
+    return visible.join(', ')
+  }
+
+  const fullOrderItems = (orderId) => {
+    const items = itemsByOrderId[orderId] || []
+    if (!items.length) return []
+    return items.map((item) => `${item.quantity}x ${item.name}`)
+  }
 
   const submitReview = async () => {
     if (!user?.id || !reviewModalOrder?.id) return
@@ -358,7 +429,7 @@ export default function OrderDetails() {
       <section className="od-shell">
         <header>
           <h1>Track Your Order</h1>
-          <p>Enter an order ID or customer phone number for live tracking.</p>
+          <p>Search by order ID or phone, then follow live prep stage and table context.</p>
         </header>
 
         <div className="od-search-row">
@@ -375,34 +446,26 @@ export default function OrderDetails() {
           </button>
         </div>
 
-        {user?.id && activeOrders.length ? (
-          <section className="od-active-panel">
-            <h2>Active Orders</h2>
-            <div className="od-active-list">
-              {activeOrders.map((order) => (
-                <button key={order.id} type="button" onClick={() => setTrackingOrder(order)} className={trackingOrder?.id === order.id ? 'active' : ''}>
-                  <span className="id-chip">#{shortOrderId(order.id)}</span>
-                  <span className="meta">
-                    <b>{stageLabels[order.status] || order.status}</b>
-                    <small>{formatOrderType(order.order_type)} · ₹{Number(order.total_amount || 0).toFixed(2)}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
         {trackingOrder ? (
           <section className="od-tracking-card">
             <div className="od-order-head">
               <div>
                 <h2>Order #{shortOrderId(trackingOrder.id)}</h2>
                 <p>
-                  {branchNameMap.get(trackingOrder.branch_id) || 'Qaffeine Outlet'} · {formatOrderType(trackingOrder.order_type)}
+                  {branchNameMap.get(trackingOrder.branch_id) || 'Qaffeine Outlet'} · {formatOrderType(trackingOrder.order_type)} · {formatTableLabel(trackingOrder)}
                 </p>
                 <code className="od-order-code">{trackingOrder.id}</code>
               </div>
               <strong>₹{Number(trackingOrder.total_amount || 0).toFixed(2)}</strong>
+            </div>
+
+            <div className="od-order-details-row">
+              <span className="od-order-detail-chip">{formatTableLabel(trackingOrder)}</span>
+              {fullOrderItems(trackingOrder.id).map((line) => (
+                <span key={line} className="od-order-detail-chip">
+                  {line}
+                </span>
+              ))}
             </div>
 
             <div className="od-stepper">
@@ -425,6 +488,48 @@ export default function OrderDetails() {
           <p className="od-empty">No order selected yet.</p>
         )}
 
+        {user?.id && activeOrders.length ? (
+          <section className="od-kitchen-panel">
+            <div className="od-kitchen-head">
+              <h2>Now Preparing</h2>
+              <p>Live prep queue with table and item details</p>
+            </div>
+            <div className="od-kitchen-list">
+              {kitchenQueue.map((order) => (
+                <button
+                  key={`kitchen-${order.id}`}
+                  type="button"
+                  onClick={() => setTrackingOrder(order)}
+                  className={trackingOrder?.id === order.id ? 'active' : ''}
+                >
+                  <span className={`od-kitchen-status od-status-${order.status}`}>
+                    {stageLabels[order.status] || order.status}
+                  </span>
+                  <b>#{shortOrderId(order.id)} · {formatTableLabel(order)}</b>
+                  <small>{summarizeOrderItems(order.id)}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {user?.id && activeOrders.length ? (
+          <section className="od-active-panel">
+            <h2>Active Orders</h2>
+            <div className="od-active-list">
+              {activeOrders.map((order) => (
+                <button key={order.id} type="button" onClick={() => setTrackingOrder(order)} className={trackingOrder?.id === order.id ? 'active' : ''}>
+                  <span className="id-chip">#{shortOrderId(order.id)}</span>
+                  <span className="meta">
+                    <b>{stageLabels[order.status] || order.status}</b>
+                    <small>{formatTableLabel(order)} · ₹{Number(order.total_amount || 0).toFixed(2)}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="od-history">
           <h2>Recent Orders</h2>
           {!historyOrders.length ? (
@@ -440,6 +545,7 @@ export default function OrderDetails() {
                   <div className="od-history-meta">
                     <span>{stageLabels[order.status] || order.status}</span>
                     <span>{formatOrderType(order.order_type)}</span>
+                    <span>{formatTableLabel(order)}</span>
                     <span>{new Date(order.created_at).toLocaleString()}</span>
                   </div>
                   <div className="od-history-actions">

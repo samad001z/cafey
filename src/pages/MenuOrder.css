@@ -2061,6 +2061,140 @@
   }
 }
 
+/* QR scanner + note + receipt enhancement overrides */
+.scan-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-btn::after {
+  content: '';
+  position: absolute;
+  width: 90px;
+  height: 160%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  top: -30%;
+  left: -120px;
+  transform: skewX(-22deg);
+  animation: scan-btn-sheen 2.6s ease-in-out infinite;
+}
+
+.mo-qr-view {
+  overflow: hidden;
+}
+
+.mo-qr-frame {
+  position: absolute;
+  inset: 14px;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.mo-qr-frame i {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: rgba(200, 133, 58, 0.9);
+  border-style: solid;
+}
+
+.mo-qr-frame .c1 {
+  left: 0;
+  top: 0;
+  border-width: 2px 0 0 2px;
+  border-top-left-radius: 9px;
+}
+
+.mo-qr-frame .c2 {
+  right: 0;
+  top: 0;
+  border-width: 2px 2px 0 0;
+  border-top-right-radius: 9px;
+}
+
+.mo-qr-frame .c3 {
+  left: 0;
+  bottom: 0;
+  border-width: 0 0 2px 2px;
+  border-bottom-left-radius: 9px;
+}
+
+.mo-qr-frame .c4 {
+  right: 0;
+  bottom: 0;
+  border-width: 0 2px 2px 0;
+  border-bottom-right-radius: 9px;
+}
+
+.mo-qr-scanline {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 12px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 214, 166, 0.2), rgba(214, 145, 69, 0.95), rgba(255, 214, 166, 0.2));
+  box-shadow: 0 0 16px rgba(214, 145, 69, 0.55);
+  animation: qr-scanline 2.2s ease-in-out infinite;
+}
+
+.mo-step-content textarea {
+  min-height: 86px;
+  border-radius: 10px;
+  border: 1px solid rgba(200, 133, 58, 0.25);
+  background: #130c07;
+  color: #f5edd6;
+  padding: 0.7rem;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+}
+
+.mo-receipt-head h4 {
+  text-shadow: none;
+}
+
+.mo-receipt-meta .mo-receipt-note {
+  margin-top: 0.15rem;
+  border: 1px dashed rgba(121, 92, 59, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.45);
+  padding: 0.3rem 0.45rem;
+}
+
+.mo-receipt-card {
+  border-radius: 18px;
+  border-color: rgba(131, 96, 58, 0.44);
+}
+
+.mo-receipt-head {
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(126, 95, 63, 0.22);
+  border-radius: 10px;
+  padding: 0.48rem 0.55rem;
+}
+
+.mo-receipt-line-row span,
+.mo-receipt-line-row strong {
+  text-shadow: none;
+  color: #2e2216;
+}
+
+.mo-receipt-line-row strong {
+  font-weight: 800;
+}
+
+@keyframes qr-scanline {
+  0% { top: 12px; opacity: 0.5; }
+  50% { top: calc(100% - 16px); opacity: 1; }
+  100% { top: 12px; opacity: 0.5; }
+}
+
+@keyframes scan-btn-sheen {
+  0%, 70% { left: -120px; }
+  100% { left: calc(100% + 120px); }
+}
+
 /* 2026 SaaS visual uplift */
 .menu-order-page {
   --mo-bg-0: #0d0704;
@@ -2209,6 +2343,27 @@
     linear-gradient(180deg, rgba(255, 248, 238, 0.96), rgba(250, 239, 224, 0.94)),
     repeating-linear-gradient(180deg, rgba(120, 83, 46, 0.08) 0 2px, transparent 2px 28px);
   box-shadow: 0 18px 34px rgba(6, 10, 24, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.mo-receipt-card .mo-receipt-lines {
+  background: rgba(255, 255, 255, 0.62);
+  border-color: rgba(120, 90, 58, 0.28);
+}
+
+.mo-receipt-card .mo-receipt-line-head {
+  background: transparent;
+  color: #6f5234;
+}
+
+.mo-receipt-card .mo-receipt-line-row {
+  background: transparent;
+  color: #2e2216;
+}
+
+.mo-receipt-card .mo-receipt-line-row span,
+.mo-receipt-card .mo-receipt-line-row strong {
+  color: #2e2216;
+  text-shadow: none;
 }
 
 .mo-recent-list .status,

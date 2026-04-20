@@ -35,8 +35,9 @@
 
 .od-search-row label {
   min-height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(200, 133, 58, 0.25);
+  border-radius: 14px;
+  border: 1px solid rgba(200, 133, 58, 0.3);
+  background: rgba(16, 10, 7, 0.7);
   display: flex;
   align-items: center;
   gap: 0.45rem;
@@ -61,14 +62,111 @@
   color: #130c07;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 10px 20px rgba(120, 70, 28, 0.24);
+}
+
+.od-kitchen-panel {
+  margin-top: 1rem;
+  border: 1px solid rgba(200, 133, 58, 0.28);
+  border-radius: 16px;
+  padding: 0.8rem;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(200, 133, 58, 0.14), transparent 40%),
+    linear-gradient(145deg, rgba(23, 14, 9, 0.94), rgba(16, 10, 7, 0.88));
+}
+
+.od-kitchen-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.od-kitchen-head p {
+  margin: 0;
+  color: #9e8a74;
+  font-size: 0.84rem;
+}
+
+.od-kitchen-list {
+  margin-top: 0.62rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.5rem;
+}
+
+.od-kitchen-list button {
+  min-height: 84px;
+  border-radius: 14px;
+  border: 1px solid rgba(200, 133, 58, 0.28);
+  background: rgba(255, 255, 255, 0.02);
+  color: #f5edd6;
+  padding: 0.58rem 0.66rem;
+  text-align: left;
+  display: grid;
+  gap: 0.24rem;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.od-kitchen-list button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(200, 133, 58, 0.5);
+}
+
+.od-kitchen-list button.active {
+  border-color: #c8853a;
+  background: rgba(200, 133, 58, 0.17);
+}
+
+.od-kitchen-list button b {
+  font-size: 0.9rem;
+}
+
+.od-kitchen-list button small {
+  color: #bca58b;
+}
+
+.od-kitchen-status {
+  width: fit-content;
+  min-height: 23px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 133, 58, 0.38);
+  padding: 0 0.48rem;
+  display: inline-flex;
+  align-items: center;
+  text-transform: uppercase;
+  font-size: 0.69rem;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #e8bf8a;
+  background: rgba(200, 133, 58, 0.1);
+}
+
+.od-status-preparing {
+  border-color: rgba(138, 215, 184, 0.45);
+  color: #9ee5ca;
+  background: rgba(110, 197, 160, 0.14);
+}
+
+.od-status-ready {
+  border-color: rgba(139, 198, 238, 0.5);
+  color: #bbe0f9;
+  background: rgba(102, 172, 220, 0.16);
+}
+
+.od-status-confirmed {
+  border-color: rgba(231, 196, 121, 0.48);
+  color: #f0d7a0;
+  background: rgba(231, 196, 121, 0.14);
 }
 
 .od-active-panel {
   margin-top: 1rem;
-  border: 1px solid rgba(200, 133, 58, 0.22);
-  border-radius: 14px;
+  border: 1px solid rgba(200, 133, 58, 0.26);
+  border-radius: 16px;
   padding: 0.8rem;
-  background: #130c07;
+  background: linear-gradient(145deg, rgba(22, 14, 9, 0.92), rgba(18, 11, 8, 0.86));
 }
 
 .od-active-list {
@@ -80,9 +178,9 @@
 
 .od-active-list button {
   min-height: 58px;
-  border-radius: 16px;
-  border: 1px solid rgba(200, 133, 58, 0.25);
-  background: rgba(255, 255, 255, 0.01);
+  border-radius: 14px;
+  border: 1px solid rgba(200, 133, 58, 0.28);
+  background: rgba(255, 255, 255, 0.02);
   color: #f5edd6;
   padding: 0.55rem 0.7rem;
   display: inline-flex;
@@ -124,6 +222,7 @@
 .od-active-list .meta b {
   color: #f5edd6;
   font-size: 0.92rem;
+  text-shadow: none;
 }
 
 .od-active-list .meta small {
@@ -132,9 +231,9 @@
 
 .od-tracking-card {
   margin-top: 1rem;
-  border: 1px solid rgba(200, 133, 58, 0.22);
-  border-radius: 14px;
-  background: #130c07;
+  border: 1px solid rgba(200, 133, 58, 0.28);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(22, 14, 9, 0.94), rgba(16, 10, 7, 0.9));
   padding: 0.9rem;
 }
 
@@ -159,6 +258,25 @@
   padding: 0.15rem 0.55rem;
   background: rgba(255, 255, 255, 0.02);
   font-size: 0.75rem;
+}
+
+.od-order-details-row {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.od-order-detail-chip {
+  min-height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 133, 58, 0.3);
+  background: rgba(255, 255, 255, 0.03);
+  color: #d9c2a6;
+  font-size: 0.8rem;
+  padding: 0 0.55rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 .od-stepper {
@@ -192,6 +310,7 @@
   background: rgba(200, 133, 58, 0.2);
   border-color: #c8853a;
   animation: pulse 1.1s infinite;
+  box-shadow: 0 0 0 4px rgba(200, 133, 58, 0.12);
 }
 
 .od-step-node p {
@@ -448,6 +567,15 @@
 
 @media (max-width: 720px) {
   .od-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .od-kitchen-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .od-kitchen-list {
     grid-template-columns: 1fr;
   }
 

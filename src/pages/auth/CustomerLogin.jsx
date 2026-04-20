@@ -74,6 +74,7 @@ async function upsertCustomerProfile(userId, phone) {
 export default function CustomerLogin() {
   const navigate = useNavigate()
   const { user, role, loading: authLoading } = useAuth()
+  const demoCustomerPhone = import.meta.env.VITE_DEMO_CUSTOMER_PHONE || '+919876543210'
 
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
@@ -173,6 +174,15 @@ export default function CustomerLogin() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleUseDemoPhone = () => {
+    if (submitting) return
+    setPhone(demoCustomerPhone)
+    setOtp('')
+    setOtpSent(false)
+    setResendCooldown(0)
+    toast.success('Demo customer phone pre-filled')
   }
 
   const sendTwilioOtp = async (cleanPhone) => {
@@ -353,8 +363,19 @@ export default function CustomerLogin() {
           onClick={handleGuestLogin}
           disabled={submitting}
         >
-          Continue as Guest (Demo)
+          Instant Demo Customer Login
         </button>
+
+        <button
+          type="button"
+          className="auth-btn auth-btn-ghost"
+          onClick={handleUseDemoPhone}
+          disabled={submitting}
+        >
+          Use Demo Customer Phone
+        </button>
+
+        <p className="auth-mode-note">Demo customer phone: {demoCustomerPhone}</p>
 
         <form className="auth-form" onSubmit={otpSent ? handleVerifyOtp : handleSendOtp}>
           <label htmlFor="customer-phone">Phone Number</label>

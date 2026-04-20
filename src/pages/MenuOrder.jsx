@@ -457,6 +457,7 @@ export default function MenuOrder() {
   const [isReceiptSheetOpen, setIsReceiptSheetOpen] = useState(false)
   const [createdOrderId, setCreatedOrderId] = useState('')
   const [receipt, setReceipt] = useState(null)
+  const [customerNote, setCustomerNote] = useState('')
   const [manualTableInput, setManualTableInput] = useState('')
   const [recentOrders, setRecentOrders] = useState([])
   const [historyError, setHistoryError] = useState('')
@@ -1021,6 +1022,7 @@ export default function MenuOrder() {
     gstAmount,
     packaging,
     total: grandTotal,
+    customerNote: customerNote.trim() || '',
     paidAt: new Date().toISOString(),
   })
 
@@ -1187,6 +1189,7 @@ export default function MenuOrder() {
             name: item.name,
             modifierSummary: item.modifierSummary || '',
           })),
+          customerNote: customerNote.trim() || null,
         }),
       })
 
@@ -1369,9 +1372,7 @@ export default function MenuOrder() {
           >
             <p className="chip">Dine-In Smart Ordering</p>
             <h1>Scan The Table QR To Start Your Order</h1>
-            <p>
-              For a production-grade in-cafe flow, we first bind this order to a table. This lets us auto-link customer details, table context, and live order tracking.
-            </p>
+            <p>Connect your table once and start ordering instantly.</p>
 
             <div className="customer-context">
               <p><strong>Customer:</strong> {customerName}</p>
@@ -1383,13 +1384,10 @@ export default function MenuOrder() {
               <button type="button" className="scan-btn" onClick={() => setShowQrScanner(true)}>
                 <ScanLine size={15} /> Scan Table QR
               </button>
-              <p>
-                Recommended QR format: {window.location.origin}/menu-order?table=T12&amp;branch=&lt;branch-id&gt;
-              </p>
             </div>
 
             <div className="manual-entry">
-              <label htmlFor="table-manual">Enter table number manually (if QR is not scannable)</label>
+              <label htmlFor="table-manual">Or enter table number manually</label>
               <input
                 id="table-manual"
                 value={manualTableInput}
@@ -1411,6 +1409,13 @@ export default function MenuOrder() {
 
                   <div className="mo-qr-view">
                     <video ref={videoRef} muted playsInline autoPlay />
+                    <div className="mo-qr-frame" aria-hidden="true">
+                      <i className="c1" />
+                      <i className="c2" />
+                      <i className="c3" />
+                      <i className="c4" />
+                      <span className="mo-qr-scanline" />
+                    </div>
                     {!isScannerReady ? <p><Camera size={14} /> Initializing camera...</p> : null}
                   </div>
 
@@ -1884,6 +1889,15 @@ export default function MenuOrder() {
               {checkoutStep === 2 ? (
                 <div className="mo-step-content">
                   <h3>Review Order Summary</h3>
+                  <label>
+                    Add a note for your order (optional)
+                    <textarea
+                      value={customerNote}
+                      onChange={(event) => setCustomerNote(event.target.value)}
+                      placeholder="e.g. Less sugar, no ice, extra hot"
+                      rows={3}
+                    />
+                  </label>
                   <div className="mo-review-list">
                     {cartItems.map((item) => (
                       <div key={item.cartKey}>
@@ -1907,7 +1921,7 @@ export default function MenuOrder() {
                       Back
                     </button>
                     <button type="button" className="next" onClick={() => setCheckoutStep(3)}>
-                      Proceed to Pay
+                      {customerNote.trim() ? 'Save & Pay' : 'Skip & Pay'}
                     </button>
                   </div>
                 </div>
@@ -2012,6 +2026,7 @@ export default function MenuOrder() {
                             {receipt.tableNumber ? <span><b>Table</b> {receipt.tableNumber}</span> : null}
                             <span><b>Invoice Date</b> {new Date(receipt.paidAt).toLocaleString()}</span>
                             <span><b>Payment</b> Razorpay (UPI/Card/Netbanking)</span>
+                            {receipt.customerNote ? <span className="mo-receipt-note"><b>Note</b> {receipt.customerNote}</span> : null}
                           </div>
 
                           <div className="mo-receipt-lines" role="table" aria-label="Receipt line items">
@@ -2119,6 +2134,7 @@ export default function MenuOrder() {
                   {receipt.tableNumber ? <span><b>Table</b> {receipt.tableNumber}</span> : null}
                   <span><b>Invoice Date</b> {new Date(receipt.paidAt).toLocaleString()}</span>
                   <span><b>Payment</b> Razorpay (UPI/Card/Netbanking)</span>
+                  {receipt.customerNote ? <span className="mo-receipt-note"><b>Note</b> {receipt.customerNote}</span> : null}
                 </div>
 
                 <div className="mo-receipt-lines" role="table" aria-label="Receipt line items">

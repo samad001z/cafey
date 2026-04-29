@@ -1108,14 +1108,14 @@ export default function Dashboard() {
                           </div>
 
                           <div className="qty-control">
-                            <button type="button" onClick={() => changeCounterItemQty(item.menu_item_id, -1)}>
+                            <button type="button" aria-label={`Decrease quantity for ${item.name}`} onClick={() => changeCounterItemQty(item.menu_item_id, -1)}>
                               <Minus size={14} />
                             </button>
                             <span>{item.qty}</span>
-                            <button type="button" onClick={() => changeCounterItemQty(item.menu_item_id, 1)}>
+                            <button type="button" aria-label={`Increase quantity for ${item.name}`} onClick={() => changeCounterItemQty(item.menu_item_id, 1)}>
                               <Plus size={14} />
                             </button>
-                            <button type="button" className="delete" onClick={() => removeCounterItem(item.menu_item_id)}>
+                            <button type="button" className="delete" aria-label={`Remove ${item.name} from cart`} onClick={() => removeCounterItem(item.menu_item_id)}>
                               <Trash2 size={14} />
                             </button>
                           </div>

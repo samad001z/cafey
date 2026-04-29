@@ -1207,7 +1207,7 @@ export default function Dashboard() {
 
         {selectedOrder ? (
           <aside className="side-panel">
-            <button type="button" className="close" onClick={() => setSelectedOrder(null)}>x</button>
+            <button type="button" className="close" aria-label="Close order details" onClick={() => setSelectedOrder(null)}>x</button>
             <h3>Order #{selectedOrder.id}</h3>
             <p>{branchNameById.get(selectedOrder.branch_id) || 'Branch'}</p>
             <p>Customer: {selectedOrder.customer?.full_name || 'Walk-in'}</p>
@@ -1680,7 +1680,7 @@ export default function Dashboard() {
             <option value="all">All outlets</option>
             {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
           </select>
-          <button type="button" className="icon-btn has-badge" onClick={() => setActivePage('monitor')}>
+          <button type="button" className="icon-btn has-badge" aria-label="Alerts" onClick={() => setActivePage('monitor')}>
             <Bell size={16} />
             {unreadAlertCount > 0 ? <span className="badge">{unreadAlertCount > 99 ? '99+' : unreadAlertCount}</span> : null}
           </button>

@@ -1,0 +1,3 @@
+## 2024-05-18 - Add `aria-label`s to the Cart Quantity Adjuster Buttons
+**Learning:** Found an accessibility issue pattern specific to this app's components, where icon-only buttons do not have descriptive `aria-label`s. In the staff dashboard, the cart's quantity adjuster buttons (Decrease, Increase, Remove) lacked `aria-label` attributes, which makes them inaccessible for screen readers.
+**Action:** Added `aria-label`s to the Minus, Plus, and Trash2 buttons in the `Dashboard.jsx` file to improve accessibility for screen readers. I should watch out for this pattern in the future in this application and make sure to add `aria-label`s to icon-only buttons.
